@@ -11,6 +11,7 @@ from labpilot.models.common import (
     RunStatus,
     Step,
 )
+from labpilot.models.execution import ExecutionEnvironment, ExperimentPurpose
 from labpilot.models.experiments import (
     Experiment,
     ExperimentConfig,
@@ -20,6 +21,7 @@ from labpilot.models.experiments import (
 )
 from labpilot.models.state import DecisionRecord, ResearchState
 from labpilot.services.interfaces import ResearchServices
+from labpilot.services.real import execute_real_experiment
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,7 @@ class ResearchWorkflow:
         handlers = {
             Step.LITERATURE: self.literature,
             Step.EVIDENCE: self.evidence,
+            Step.BASELINE: self.baseline,
             Step.HYPOTHESIS: self.hypothesis,
             Step.EXPERIMENT: self.experiment,
             Step.ANALYZE: self.analyze,
@@ -50,7 +53,20 @@ class ResearchWorkflow:
 
     def evidence(self, state: ResearchState) -> ResearchState:
         claims, evidence = self.services.evidence.extract(state.papers)
-        return state.evolve(claims=claims, evidence=evidence, next_step=Step.HYPOTHESIS)
+        return state.evolve(
+            claims=claims,
+            evidence=evidence,
+            next_step=(
+                Step.BASELINE
+                if state.execution.environment == ExecutionEnvironment.DOCKER
+                else Step.HYPOTHESIS
+            ),
+        )
+
+    def baseline(self, state: ResearchState) -> ResearchState:
+        if not state.budget.can_continue():
+            return self.finish(state, "Budget exhausted before baseline execution")
+        return execute_real_experiment(state, self.services, purpose=ExperimentPurpose.BASELINE)
 
     def hypothesis(self, state: ResearchState) -> ResearchState:
         if not state.budget.can_continue():
@@ -74,6 +90,10 @@ class ResearchWorkflow:
             return self.finish(state, "Experiment budget exhausted")
         if state.active_hypothesis_id is None:
             raise ValueError("Experiment requires an active hypothesis")
+        if state.execution.environment == ExecutionEnvironment.DOCKER:
+            return execute_real_experiment(
+                state, self.services, purpose=ExperimentPurpose.CANDIDATE
+            )
         experiment = Experiment(
             id=uuid5(state.research_id, f"experiment:{state.iteration}"),
             hypothesis_id=state.active_hypothesis_id,
@@ -168,7 +188,12 @@ class ResearchWorkflow:
         )
         state = state.evolve(hypotheses=hypotheses)
         if state.decision == ResearchDecision.REPLAN and state.budget.can_replan():
-            return state.evolve(budget=state.budget.consume(replans=1), next_step=Step.HYPOTHESIS)
+            next_step = (
+                Step.BASELINE
+                if state.experiments[-1].purpose == ExperimentPurpose.BASELINE
+                else Step.HYPOTHESIS
+            )
+            return state.evolve(budget=state.budget.consume(replans=1), next_step=next_step)
         return self.finish(state, state.decisions[-1].reason)
 
     @staticmethod

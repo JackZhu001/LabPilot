@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "labpilot"
 version = "0.1.0"
-description = "Autonomous ML Research & Experimentation Agent — Phase 1 foundation"
+description = "Autonomous ML Research & Experimentation Agent with isolated Docker execution"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -23,6 +23,8 @@ labpilot = "labpilot.cli.app:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-m 'not docker'"
+markers = ["docker: requires a running Docker daemon; may prepare an image over the network"]
 
 [tool.ruff]
 line-length = 100

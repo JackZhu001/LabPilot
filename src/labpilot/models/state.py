@@ -16,13 +16,14 @@ from labpilot.models.common import (
     Text,
     utc_now,
 )
+from labpilot.models.execution import ExecutionConfig
 from labpilot.models.experiments import Baseline, CodePatch, Experiment, Metric, Trial
 from labpilot.models.literature import Claim, Evidence, Hypothesis, Paper
 
 
 class DecisionRecord(DomainModel):
     experiment_id: UUID
-    hypothesis_id: UUID
+    hypothesis_id: UUID | None
     decision: ResearchDecision
     reason: Text
     improvement: float | None = Field(default=None, allow_inf_nan=False)
@@ -59,6 +60,8 @@ class ResearchState(DomainModel):
     evidence: tuple[Evidence, ...] = ()
     hypotheses: tuple[Hypothesis, ...] = ()
     active_hypothesis_id: UUID | None = None
+    execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
+    baseline_experiment_id: UUID | None = None
     baseline: Baseline = Field(default_factory=Baseline)
     patches: tuple[CodePatch, ...] = ()
     experiments: tuple[Experiment, ...] = ()
@@ -100,7 +103,10 @@ class ResearchState(DomainModel):
             and all(item.claim_id in claims for item in self.evidence)
             and all(set(item.evidence_ids) <= evidence for item in self.hypotheses)
             and all(item.hypothesis_id in hypotheses for item in self.patches)
-            and all(item.hypothesis_id in hypotheses for item in self.experiments)
+            and all(
+                item.hypothesis_id is None or item.hypothesis_id in hypotheses
+                for item in self.experiments
+            )
             and all(item.experiment_id in experiments for item in self.trials)
             and all(
                 item.experiment_id in experiments
@@ -124,6 +130,25 @@ class ResearchState(DomainModel):
         )
         if not links_valid:
             raise ValueError("Broken provenance reference")
+        if self.baseline_experiment_id is not None:
+            baseline = experiments.get(self.baseline_experiment_id)
+            if (
+                baseline is None
+                or baseline.purpose.value != "BASELINE"
+                or baseline.status.value != "SUCCEEDED"
+            ):
+                raise ValueError(
+                    "Baseline reference must identify a successful baseline experiment"
+                )
+        for item in self.experiments:
+            if item.result and item.result.execution:
+                provenance = item.result.execution
+                if (
+                    provenance.research_id != self.research_id
+                    or provenance.experiment_id != item.id
+                    or provenance.hypothesis_id != item.hypothesis_id
+                ):
+                    raise ValueError("Execution provenance identity does not match the experiment")
         if self.active_hypothesis_id is not None and self.active_hypothesis_id not in hypotheses:
             raise ValueError("Active hypothesis must exist in state")
         if self.iteration != self.budget.iterations:

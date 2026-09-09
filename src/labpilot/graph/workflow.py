@@ -9,8 +9,8 @@ from langgraph.graph import END, START, StateGraph
 from labpilot.models.common import RunStatus, Step
 from labpilot.models.state import ResearchState
 from labpilot.persistence.repository import ResearchRepository
-from labpilot.services.fakes import fake_services
 from labpilot.services.interfaces import ResearchServices
+from labpilot.services.real import services_for
 from labpilot.services.workflow import ResearchWorkflow
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ def execute(
     if research.status == RunStatus.COMPLETED:
         return research
     research = research.evolve(status=RunStatus.RUNNING)
-    workflow = ResearchWorkflow(services or fake_services(research.simulation))
+    workflow = ResearchWorkflow(services or services_for(research))
 
     graph = StateGraph(GraphState)
 
@@ -81,6 +81,10 @@ def execute(
     # Two source steps plus at most four steps per iteration; allow a final budget guard.
     result = compiled.invoke(
         {"research": research, "completed_steps": 0},
-        config={"recursion_limit": 4 * research.budget.max_iterations + 10},
+        config={
+            "recursion_limit": 4 * research.budget.max_iterations
+            + 3 * research.budget.max_experiments
+            + 10
+        },
     )
     return ResearchState.model_validate(result["research"])

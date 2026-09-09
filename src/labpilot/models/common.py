@@ -60,6 +60,7 @@ class RunStatus(StrEnum):
 class Step(StrEnum):
     LITERATURE = "literature"
     EVIDENCE = "evidence"
+    BASELINE = "baseline"
     HYPOTHESIS = "hypothesis"
     EXPERIMENT = "experiment"
     ANALYZE = "analyze"
