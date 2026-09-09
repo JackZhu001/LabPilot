@@ -13,6 +13,9 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from labpilot.execution.git import GitError
 from labpilot.graph.workflow import execute
+from labpilot.hpo.models import HPOConfig
+from labpilot.hpo.optuna import StudyConflictError
+from labpilot.hpo.reporting import format_studies
 from labpilot.models.budget import ResearchBudget
 from labpilot.models.common import FakeOutcome
 from labpilot.models.execution import ExecutionConfig, ExecutionEnvironment
@@ -48,6 +51,7 @@ def repository_at(path: Path) -> Iterator[SQLiteResearchRepository]:
         SQLAlchemyError,
         OSError,
         GitError,
+        StudyConflictError,
     ) as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1) from exc
@@ -76,13 +80,16 @@ def print_summary(state: ResearchState) -> None:
         typer.echo(f"Baseline metric: {baseline_value}")
         current = state.experiments[-1] if state.experiments else None
         if current and current.result:
-            typer.echo(f"Current metric: {current.result.value}")
+            typer.echo(f"Latest metric: {current.result.value}")
             if current.result.execution:
                 detail = current.result.execution
                 typer.echo(f"Runtime: {detail.runtime_seconds:.3f}s")
                 typer.echo(f"Provenance: {detail.artifacts.provenance_path}")
                 for error in detail.cleanup_errors:
                     typer.echo(f"Cleanup warning: {error}")
+
+    if state.studies:
+        typer.echo(format_studies(state))
 
 
 @app.callback()
@@ -108,9 +115,14 @@ def run(
         str, typer.Option(help="Comma-separated fake outcomes; last repeats.")
     ] = "improve",
     max_iterations: Annotated[int, typer.Option(min=0)] = 3,
-    max_experiments: Annotated[int, typer.Option(min=0)] = 3,
+    max_experiments: Annotated[int | None, typer.Option(min=0)] = None,
     max_failed_experiments: Annotated[int, typer.Option(min=0)] = 2,
     max_replans: Annotated[int, typer.Option(min=0)] = 2,
+    hpo: Annotated[bool, typer.Option(help="Run a persistent inner-loop Optuna study.")] = False,
+    trials: Annotated[
+        int, typer.Option(min=1, help="Trials per study and total HPO trial limit.")
+    ] = 6,
+    sampler_seed: Annotated[int, typer.Option(min=0, max=2**32 - 1)] = 42,
     executor: Annotated[ExecutionEnvironment, typer.Option()] = ExecutionEnvironment.FAKE,
     repo: Annotated[Path | None, typer.Option(help="Clean dedicated baseline repository.")] = None,
     patch: Annotated[
@@ -135,6 +147,8 @@ def run(
         raise typer.BadParameter("--repo is required for Docker execution")
     if repo is not None and executor != ExecutionEnvironment.DOCKER:
         raise typer.BadParameter("--repo requires --executor docker")
+    if hpo and executor != ExecutionEnvironment.DOCKER:
+        raise typer.BadParameter("--hpo requires --executor docker")
     with repository_at(db) as repository:
         execution = (
             configure_docker(
@@ -153,10 +167,14 @@ def run(
                 research_goal=goal,
                 simulation=scenario,
                 baseline=Baseline(min_delta=min_delta),
-                execution=execution or ExecutionConfig(),
+                execution=execution or ExecutionConfig(runtime_root=runtime_root.resolve()),
+                hpo=HPOConfig(max_trials=trials, sampler_seed=sampler_seed) if hpo else None,
                 budget=ResearchBudget(
                     max_iterations=max_iterations,
-                    max_experiments=max_experiments,
+                    max_experiments=(
+                        max_experiments if max_experiments is not None else trials + 1 if hpo else 3
+                    ),
+                    max_hpo_trials=trials if hpo else 0,
                     max_failed_experiments=max_failed_experiments,
                     max_replans=max_replans,
                 ),

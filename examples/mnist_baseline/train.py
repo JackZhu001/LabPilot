@@ -30,6 +30,13 @@ def main() -> None:
     }
     if not isinstance(config, dict) or set(config) != expected:
         raise ValueError("Unexpected configuration fields")
+    parameters_path = Path("labpilot-parameters.json")
+    if parameters_path.is_file():
+        overrides = json.loads(parameters_path.read_text())
+        allowed = {"learning_rate", "dropout", "hidden_dim", "batch_size", "epochs"}
+        if not isinstance(overrides, dict) or not set(overrides) <= allowed:
+            raise ValueError("Unsupported parameter overrides")
+        config.update(overrides)
     seed = int(os.environ.get("LABPILOT_SEED", config["seed"]))
     for field in ("epochs", "batch_size", "hidden_dim", "train_samples", "validation_samples"):
         if type(config[field]) is not int or config[field] <= 0:

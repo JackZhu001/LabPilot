@@ -75,6 +75,16 @@ class DockerExperimentRunner:
             source_hash = capture_source(
                 path, self.worktrees.tracked_files(path), artifacts.source_path
             )
+            if experiment.config.overrides is not None:
+                parameter_path = artifacts.source_path / "labpilot-parameters.json"
+                if parameter_path.exists():
+                    raise ArtifactError(
+                        "Reserved generated parameter file already exists in source"
+                    )
+                parameter_path.write_text(
+                    experiment.config.overrides.model_dump_json(exclude_none=True)
+                )
+                artifacts = artifacts.model_copy(update={"parameters_path": parameter_path})
             config_file = artifacts.source_path / "config.yaml"
             if config_file.is_file():
                 configuration_text = config_file.read_text()
@@ -137,6 +147,7 @@ class DockerExperimentRunner:
             artifacts=artifacts,
             training_command=config.training_command,
             configuration_text=configuration_text,
+            training_overrides=experiment.config.overrides,
             source_sha256=source_hash,
             random_seed=experiment.config.seed,
             started_at=started,

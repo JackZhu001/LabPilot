@@ -6,6 +6,8 @@ from uuid import UUID, uuid4
 
 from pydantic import AwareDatetime, Field, model_validator
 
+from labpilot.hpo.models import TrialStatus
+from labpilot.hpo.search_space import SampledParameters
 from labpilot.models.common import (
     DomainModel,
     ExperimentStatus,
@@ -15,6 +17,7 @@ from labpilot.models.common import (
     utc_now,
 )
 from labpilot.models.execution import CommitSHA, ExecutionProvenance, ExperimentPurpose, RawText
+from labpilot.models.training import TrainingOverrides
 
 
 class CodePatch(DomainModel):
@@ -36,6 +39,7 @@ class Baseline(DomainModel):
 
 
 class ExperimentConfig(DomainModel):
+    overrides: TrainingOverrides | None = None
     direction: MetricDirection = MetricDirection.MAXIMIZE
     seed: NonNegative = 42
     metric_name: Text = "validation_accuracy"
@@ -69,7 +73,47 @@ class Trial(DomainModel):
     id: UUID = Field(default_factory=uuid4)
     experiment_id: UUID
     seed: NonNegative
-    status: ExperimentStatus
+    status: TrialStatus
+    study_id: UUID | None = None
+    research_id: UUID | None = None
+    hypothesis_id: UUID | None = None
+    optuna_trial_number: NonNegative | None = None
+    parameters: SampledParameters = Field(default_factory=SampledParameters)
+    primary_metric_name: Text | None = None
+    primary_metric_value: float | None = Field(default=None, allow_inf_nan=False)
+    failure_reason: Text | None = None
+    started_at: AwareDatetime | None = None
+    finished_at: AwareDatetime | None = None
+    runtime_seconds: float = Field(default=0, ge=0, allow_inf_nan=False)
+    created_at: AwareDatetime | None = None
+
+    @property
+    def pruned(self) -> bool:
+        return self.status == TrialStatus.PRUNED
+
+    @model_validator(mode="after")
+    def validate_hpo_trial(self) -> Trial:
+        if self.study_id is not None:
+            if (
+                self.research_id is None
+                or self.hypothesis_id is None
+                or self.optuna_trial_number is None
+            ):
+                raise ValueError("HPO trials require research, hypothesis and Optuna identities")
+            if self.primary_metric_name is None:
+                raise ValueError("HPO trials require a primary metric")
+            if self.status == TrialStatus.SUCCEEDED and self.primary_metric_value is None:
+                raise ValueError("Successful HPO trials require a metric")
+            if self.status == TrialStatus.FAILED and not self.failure_reason:
+                raise ValueError("Failed HPO trials require a reason")
+            if self.status in {TrialStatus.SUCCEEDED, TrialStatus.FAILED, TrialStatus.PRUNED}:
+                if (
+                    self.started_at is None
+                    or self.finished_at is None
+                    or self.finished_at < self.started_at
+                ):
+                    raise ValueError("Terminal HPO trials require ordered execution timestamps")
+        return self
 
 
 class Metric(DomainModel):

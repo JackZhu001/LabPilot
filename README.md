@@ -10,14 +10,14 @@ decision to a measurable result.
 Literature → Evidence → Hypothesis → Experiment → Metric → Keep / Reject / Replan
 ```
 
-**Current scope: Phase 2 — real isolated ML execution.** Fake mode preserves the
-fast, offline Phase 1 loop. Docker mode runs a real CPU MNIST baseline and a
-predefined patched candidate in separate Git worktrees, validates their metric
-files, and feeds the measured result into the existing decision engine.
+**Current scope: Phase 3 — resumable hierarchical hyperparameter optimization.**
+Fake mode preserves the fast, offline research loop. Docker mode measures a CPU
+MNIST baseline, runs a fixed candidate across a typed Optuna search space, and
+feeds the best successful trial into the existing deterministic decision engine.
 
-No LLM calls, generated patches, HPO, or real literature retrieval are implemented.
-The literature/evidence/hypothesis stages still use the explicit Phase 1 fixtures;
-only Docker-mode execution and its metrics are real.
+No LLM calls, generated hypotheses or patches, or real literature retrieval are
+implemented. The literature, evidence, and hypothesis stages still use explicit
+fixtures; Docker execution, metrics, and inner-loop parameter search are real.
 
 ## Why this project exists
 
@@ -39,13 +39,19 @@ chatbot roles.
 - Deterministic fake scenarios, including expected experiment failures.
 - SQLAlchemy 2.x / SQLite snapshots, metadata listings, and optimistic revisions.
 - Pause after any completed step; resume in a fresh process from the next step.
+- Typed floating-point, integer, and categorical search spaces with validated
+  conversion to experiment configuration.
+- Persistent Optuna studies, seeded TPE sampling, exact HPO budget accounting,
+  failed-trial continuation, and deterministic best-trial selection.
+- One isolated Docker experiment per accepted trial, with a generated validated
+  parameter file retained in its source snapshot.
 - CLI inspection, JSON export to stdout, and standard logging with research,
-  hypothesis, and experiment identifiers.
+  hypothesis, study, trial, and experiment identifiers.
 
 Docker mode adds `ExecutionEnvironment`, `ExecutionStatus`, `ExperimentArtifact`,
 `GitMetadata`, `DockerMetadata`, `MetricReport`, and `ExecutionProvenance`. Supplied
-patches are retained in `CodePatch`. There is one trial per experiment; multiple
-trials and search are reserved for Phase 3.
+patches are retained in `CodePatch`. In HPO mode, one Optuna trial maps to one
+LabPilot `Trial` and one `Experiment`; the measured baseline remains outside the study.
 
 ## Architecture
 
@@ -64,10 +70,12 @@ Business logic lives in `services/workflow.py`, numerical comparison in
 `decisions/engine.py`, and storage in `persistence/repository.py`.
 
 ```text
-START → literature → evidence → hypothesis → experiment → analyze → decision
-                                   ↑                                │
-                                   └────── REPLAN, budget allows ────┤
-                                                         KEEP/REJECT → END
+START → literature → evidence → hypothesis ─────────→ experiment → analyze → decision
+                                   │                                  ↑          │
+                                   └→ plan → suggest → execute → sync ┘          │
+                                   ↑                                             │
+                                   └──────────── REPLAN, budget allows ──────────┤
+                                                                   KEEP/REJECT → END
 ```
 
 Every entry is routed from the saved `next_step`. Before creating a hypothesis or
@@ -141,6 +149,13 @@ process reconstructs the same fake services; it does not depend on a hidden rand
 number generator or in-memory call counter. IDs are stable within a research ID,
 and control flow is deterministic. New research IDs and wall-clock timestamps vary.
 
+HPO adds a linked Optuna SQLite database per study. Optuna owns trial suggestions
+and its ask/tell states. The versioned LabPilot snapshot owns accepted executions,
+results, counters, and the workflow cursor. Stable study/trial/experiment UUIDs and
+Optuna trial numbers connect them. An interrupted ask is adopted on resume, and an
+already synchronized result is accepted idempotently; conflicting records fail
+closed. `study.json` is regenerated after checkpoints and is never a resume source.
+
 ## Project structure
 
 ```text
@@ -151,6 +166,7 @@ LabPilot/
 ├── .env.example
 ├── .gitignore
 ├── docs/phase2-report.md
+├── docs/phase3-report.md
 ├── src/
 │   └── labpilot/
 │       ├── cli/
@@ -169,6 +185,14 @@ LabPilot/
 │       ├── graph/
 │       │   ├── __init__.py
 │       │   └── workflow.py
+│       ├── hpo/
+│       │   ├── mapper.py
+│       │   ├── models.py
+│       │   ├── optuna.py
+│       │   ├── reporting.py
+│       │   ├── search_space.py
+│       │   ├── selection.py
+│       │   └── service.py
 │       ├── models/
 │       │   ├── __init__.py
 │       │   ├── budget.py
@@ -176,7 +200,8 @@ LabPilot/
 │       │   ├── execution.py
 │       │   ├── experiments.py
 │       │   ├── literature.py
-│       │   └── state.py
+│       │   ├── state.py
+│       │   └── training.py
 │       ├── persistence/
 │       │   ├── __init__.py
 │       │   └── repository.py
@@ -208,6 +233,8 @@ LabPilot/
 │   ├── test_docker_adapter.py
 │   ├── test_fakes.py
 │   ├── test_git_execution.py
+│   ├── test_hpo_models.py
+│   ├── test_hpo_workflow.py
 │   ├── test_metric_reports.py
 │   ├── test_models.py
 │   ├── test_persistence.py
@@ -218,8 +245,10 @@ LabPilot/
 
 Phase 2 adds `execution/{git,docker,runner,metrics,artifacts}.py`,
 `models/execution.py`, `services/real.py`, the MNIST example, and execution tests.
-Existing schema-version-1 snapshots remain readable because the extensions have
-compatible defaults. No database migration or second checkpoint store was needed.
+Phase 3 adds `hpo/`, typed training overrides, study/trial state, and HPO tests.
+Existing schema-version-1 snapshots remain readable because extensions have
+compatible defaults. No database migration was needed. Optuna uses its own scoped
+database for sampler state; it does not replace the LabPilot checkpoint repository.
 LLMs, prompts, and search provider implementations remain deferred.
 
 ## Setup
@@ -286,6 +315,24 @@ Library callers can construct `ResearchState` with a custom `Baseline` and injec
 `ResearchServices` into `graph.workflow.execute`. The CLI deliberately exposes only
 a small set of fake and Docker execution options.
 
+Run the predefined Phase 3 MNIST inner-loop search:
+
+```bash
+labpilot prepare-example .labpilot/baselines/mnist-hpo
+labpilot run --goal "Optimize MNIST regularization" \
+  --executor docker --repo .labpilot/baselines/mnist-hpo \
+  --hpo --trials 6 --sampler-seed 42 \
+  --max-replans 0 --min-delta 0.001
+labpilot status <research-id>
+```
+
+`--hpo` requires Docker execution. `--trials` sets both the study plan and HPO trial limit. The default Docker HPO
+experiment budget includes one measured baseline plus every requested trial.
+`--sampler-seed` controls the reproducible Phase 3 TPE policy. `status` and the
+final run output show every trial, its parameters, metric, runtime, best trial,
+baseline, and raw delta. Use `--stop-after N` and then `resume` to exercise a fresh
+process restart; committed trials are not executed again.
+
 ## Development
 
 ```bash
@@ -301,7 +348,9 @@ all routing outcomes, each budget limit, fake determinism, stale database writes
 restart at every nonterminal step of a two-iteration run, exceptions before commit,
 committed experiments not rerunning, and CLI behavior. Tests use temporary databases.
 
-The [measured Phase 2 report](docs/phase2-report.md) records the local demo and verification results.
+The [measured Phase 2 report](docs/phase2-report.md) and
+[measured Phase 3 report](docs/phase3-report.md) record the local demos and
+verification results.
 
 ## Phase 2: isolated real execution
 
@@ -454,10 +503,66 @@ build and execution failures fail tests. Initial integration-test image preparat
 may need network access; subsequent training is offline. Unit tests use temporary
 Git repositories and mocked Docker boundaries, with socket access blocked.
 
+## Phase 3: hierarchical HPO
+
+```text
+Hypothesis + fixed candidate patch
+    ↓
+ExperimentPlan → typed SearchSpace
+    ↓
+Persistent Optuna study (seeded TPE)
+    ↓
+Sampled parameters → validated TrainingOverrides
+    ↓
+DockerExperimentRunner → outputs/metrics.json
+    ↓
+LabPilot Trial + Optuna tell
+    ↓ repeat within budget
+Best successful trial → measured baseline → DecisionEngine
+```
+
+The outer loop chooses what code or architecture to try: a hypothesis may carry one
+fixed patch and a search space. The inner loop chooses numeric and categorical
+values for that fixed candidate. Phase 3 implements only the inner loop. Optuna,
+rather than a language model, samples `learning_rate`, `dropout`, `hidden_dim`, and
+`batch_size` for the MNIST fixture.
+
+`SearchSpace` is a discriminated union of `FloatParameter`, `IntParameter`, and
+`CategoricalParameter`. It rejects reversed bounds, incompatible log/step options,
+steps that do not divide the range, empty or duplicate choices, and duplicate names.
+Sampled values cross into execution only through the validated `TrainingOverrides`
+model. The runner writes `labpilot-parameters.json` into the captured trial source;
+the training script reads only those four supported fields. Each trial retains the
+same candidate patch but gets a separate worktree, artifact directory, container,
+experiment ID, and provenance record.
+
+Each study has a stable UUID/name and stores Optuna data at:
+
+```text
+.labpilot/runs/<research-id>/studies/<study-id>/
+├── optuna.sqlite3     # Optuna-owned suggestions and ask/tell states
+└── study.json         # Regenerable human/machine-readable LabPilot view
+```
+
+The LabPilot snapshot contains typed `ExperimentPlan`, `OptimizationStudy`, and
+`Trial` records. Reserving a trial charges `experiments` and `hpo_trials` together,
+exactly once. Execution failure also charges the existing failed-experiment counter,
+is reported to Optuna as failed, and does not stop later trials while budget remains.
+The study ends FAILED when it has no successful trial. Advanced pruning is omitted
+because the current trainer emits only final metrics; a `NopPruner` avoids inventing
+intermediate observations.
+
+Best-trial selection considers successful trials only, respects maximize/minimize,
+and breaks equal metrics by Optuna trial number then UUID. The selected metric is
+passed to the existing `DecisionEngine`; the baseline is measured once and is never
+an Optuna trial. The per-trial seed policy is recorded as
+`seed_plus_trial_number_v1`, so a restarted process reproduces the same remaining
+suggestion sequence without relying on an in-memory sampler RNG.
+
 ## Limitations
 
-- Only experiment execution/metrics are real; literature and hypothesis inputs
-  remain explicit deterministic fixtures or supplied patches.
+- Experiment execution, metrics, and inner-loop HPO are real; literature and
+  hypothesis inputs remain explicit deterministic fixtures or supplied patches.
 - One local executor per run; no leases, distributed scheduling, or automatic
   reconciliation after a process crash during active Docker execution.
 - Worktrees and containers are cleaned up normally, but cleanup failures can leave
@@ -467,30 +572,30 @@ Git repositories and mocked Docker boundaries, with socket access blocked.
 - Dockerfiles, images, repositories, and patches are trusted local inputs. Docker
   isolation here is not a complete defense against intentionally hostile code.
 - Schema extensions are backward-compatible; migration tooling remains deferred.
-- No LLM calls, generated patches, real literature APIs, HPO, MLflow, web UI,
+- No LLM calls, generated patches, real literature APIs, MLflow, web UI,
   distributed execution, paper writing, or vector database.
+- The current HPO implementation is sequential and supports final metrics only.
+  It has no pruning, executor leases, parallel workers, or active-container recovery.
 
 ## Roadmap
 
 | Phase | Scope |
 | --- | --- |
 | 1 | Typed state, deterministic orchestration, SQLite checkpoint/resume |
-| **2 (current)** | Git worktrees, supplied patches, Docker execution, real MNIST metrics |
-| 3 | Optuna hyperparameter optimization |
+| 2 | Git worktrees, supplied patches, Docker execution, real MNIST metrics |
+| **3 (current)** | Typed, persisted, budgeted Optuna HPO through Docker trials |
 | 4 | LLM hypothesis and code patch generation |
 | 5 | arXiv and Semantic Scholar evidence grounding |
 | 6 | Benchmarks and evaluation |
 
-### Exact Phase 3 TODOs (not implemented)
+### Exact Phase 4 TODOs (not implemented)
 
-- [ ] Define typed categorical, integer, and floating-point search spaces and validation.
-- [ ] Add a persisted Optuna study identity and reproducible sampler configuration.
-- [ ] Support multiple uniquely identified trials per hypothesis, each with configuration,
-      execution provenance, seed, result, and budget accounting.
-- [ ] Map suggested parameters to validated experiment configurations while preserving
-      worktree isolation and the same Docker/metric contracts.
-- [ ] Define intermediate metric reporting and pruning/cancellation semantics.
-- [ ] Select the best eligible completed trial using objective direction and deterministic tie-breaking.
-- [ ] Persist study/trial progress and resume without rerunning committed trials.
-- [ ] Add bounded offline adapter tests and optional Docker search integration tests.
-- [ ] Expose minimal CLI search options and document budgets, pruning, and reproducibility.
+- [ ] Add a real `LLMClient` behind an injectable interface.
+- [ ] Validate all model output through structured schemas with explicit retry/failure handling.
+- [ ] Inspect repository context within bounded, auditable inputs.
+- [ ] Generate evidence-linked hypotheses and typed `ExperimentPlan` proposals.
+- [ ] Generate and validate candidate code patches before isolated execution.
+- [ ] Preserve the outer-loop patch / inner-loop Optuna boundary.
+- [ ] Account for model tokens, cost, attempts, and failure budgets in `ResearchBudget`.
+- [ ] Persist prompts, model identity, structured responses, and provenance without secrets.
+- [ ] Add deterministic fake-client tests before any opt-in network integration tests.

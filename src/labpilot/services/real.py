@@ -8,6 +8,7 @@ from uuid import uuid5
 
 from labpilot.execution.git import WorktreeManager, git
 from labpilot.execution.runner import DockerExperimentRunner
+from labpilot.hpo.models import TrialStatus
 from labpilot.models.common import ExperimentStatus, Step
 from labpilot.models.execution import ExecutionConfig, ExecutionEnvironment, ExperimentPurpose
 from labpilot.models.experiments import (
@@ -151,7 +152,7 @@ def execute_real_experiment(
         id=uuid5(experiment_id, "trial:0"),
         experiment_id=experiment_id,
         seed=experiment.config.seed,
-        status=result.status,
+        status=TrialStatus(result.status.value),
     )
     metrics = state.metrics
     if result.status == ExperimentStatus.SUCCEEDED:

@@ -8,6 +8,8 @@ from labpilot.models.common import DomainModel, NonNegative
 
 
 class ResearchBudget(DomainModel):
+    max_hpo_trials: NonNegative = 0
+    hpo_trials: NonNegative = 0
     max_iterations: NonNegative = 3
     max_experiments: NonNegative = 3
     max_failed_experiments: NonNegative = 2
@@ -19,7 +21,7 @@ class ResearchBudget(DomainModel):
 
     @model_validator(mode="after")
     def validate_usage(self) -> Self:
-        for key in ("iterations", "experiments", "failed_experiments", "replans"):
+        for key in ("iterations", "experiments", "failed_experiments", "replans", "hpo_trials"):
             if getattr(self, key) > getattr(self, f"max_{key}"):
                 raise ValueError(f"{key} usage exceeds limit")
         if self.failed_experiments > self.experiments:
@@ -32,6 +34,9 @@ class ResearchBudget(DomainModel):
             and self.failed_experiments < self.max_failed_experiments
         )
 
+    def can_run_hpo_trial(self) -> bool:
+        return self.hpo_trials < self.max_hpo_trials and self.can_run_experiment()
+
     def can_continue(self) -> bool:
         """Whether a new iteration may start; an active iteration may still finish."""
         return self.iterations < self.max_iterations and self.can_run_experiment()
@@ -43,7 +48,13 @@ class ResearchBudget(DomainModel):
         """Return validated usage increments, rejecting negative or unknown counters."""
         values = self.model_dump()
         for key, amount in usage.items():
-            if key not in {"iterations", "experiments", "failed_experiments", "replans"}:
+            if key not in {
+                "iterations",
+                "experiments",
+                "failed_experiments",
+                "replans",
+                "hpo_trials",
+            }:
                 raise ValueError(f"Unknown budget counter: {key}")
             if amount < 0:
                 raise ValueError("Budget usage cannot decrease")

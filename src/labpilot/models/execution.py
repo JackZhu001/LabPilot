@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, Field, StringConstraints, model_validator
 
 from labpilot.models.common import DomainModel, NonNegative, Text
+from labpilot.models.training import TrainingOverrides
 
 RawText = Annotated[str, StringConstraints(strip_whitespace=False)]
 
@@ -75,6 +76,7 @@ class ExecutionConfig(DomainModel):
 
 
 class ExperimentArtifact(DomainModel):
+    parameters_path: Path | None = None
     stdout_path: Path
     stderr_path: Path
     metrics_path: Path
@@ -112,6 +114,7 @@ class ExecutionProvenance(DomainModel):
     artifacts: ExperimentArtifact
     training_command: tuple[Text, ...]
     configuration_text: RawText | None = None
+    training_overrides: TrainingOverrides | None = None
     source_sha256: Text | None = None
     random_seed: NonNegative
     started_at: AwareDatetime

@@ -9,6 +9,7 @@ import pytest
 from labpilot.execution.git import git
 from labpilot.execution.runner import DockerExperimentRunner
 from labpilot.graph.workflow import execute
+from labpilot.hpo.models import HPOConfig
 from labpilot.models.budget import ResearchBudget
 from labpilot.models.common import ExperimentStatus, RunStatus
 from labpilot.models.execution import ExperimentPurpose
@@ -115,3 +116,52 @@ def test_real_container_failure(
         check=True,
     )
     assert remaining.stdout.strip() == ""
+
+
+def test_real_three_trial_hpo_and_resume(tmp_path: Path, image: str) -> None:
+    """All search trials use the real Docker runner and survive a process-style reopen."""
+    repo = prepare_example(ROOT / "examples/mnist_baseline", tmp_path / "baseline")
+    before = git(repo, "rev-parse", "HEAD").strip()
+    config = configure_docker(repo, tmp_path / "runtime", image=image, build_image=False)
+    database = tmp_path / "hpo.sqlite3"
+    store = SQLiteResearchRepository(database)
+    initial = store.create(
+        ResearchState(
+            research_goal="Optimize MNIST regularization",
+            execution=config,
+            hpo=HPOConfig(max_trials=3, sampler_seed=42),
+            budget=ResearchBudget(
+                max_experiments=4,
+                max_hpo_trials=3,
+                max_failed_experiments=3,
+                max_replans=0,
+            ),
+        )
+    )
+    partial = execute(store, initial.research_id, stop_after=10)
+    completed_before = tuple(
+        experiment.id for experiment in partial.experiments if experiment.result is not None
+    )
+    assert len(completed_before) == 3  # baseline plus two search trials
+    assert partial.next_step.value == "hpo_sync"
+    store.close()
+
+    reopened = SQLiteResearchRepository(database)
+    result = execute(reopened, initial.research_id)
+    study = result.studies[0]
+    trials = tuple(trial for trial in result.trials if trial.study_id == study.id)
+    assert study.completed_trials == 3
+    assert study.failed_trials == 0
+    assert len(trials) == 3
+    assert len({tuple(trial.parameters.as_dict().items()) for trial in trials}) == 3
+    assert tuple(experiment.id for experiment in result.experiments[:3]) == completed_before
+    best = next(trial for trial in trials if trial.id == study.best_trial_id)
+    assert best.primary_metric_value == max(
+        trial.primary_metric_value for trial in trials if trial.primary_metric_value is not None
+    )
+    assert all(
+        experiment.result.execution.git.baseline_clean_after for experiment in result.experiments
+    )
+    assert git(repo, "rev-parse", "HEAD").strip() == before
+    assert git(repo, "status", "--porcelain") == ""
+    reopened.close()

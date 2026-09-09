@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from pydantic import AwareDatetime, Field, model_validator
 
+from labpilot.hpo.models import ExperimentPlan, HPOConfig, OptimizationStudy
 from labpilot.models.budget import ResearchBudget
 from labpilot.models.common import (
     DomainModel,
@@ -22,7 +23,8 @@ from labpilot.models.literature import Claim, Evidence, Hypothesis, Paper
 
 
 class DecisionRecord(DomainModel):
-    experiment_id: UUID
+    experiment_id: UUID | None
+    study_id: UUID | None = None
     hypothesis_id: UUID | None
     decision: ResearchDecision
     reason: Text
@@ -61,6 +63,10 @@ class ResearchState(DomainModel):
     hypotheses: tuple[Hypothesis, ...] = ()
     active_hypothesis_id: UUID | None = None
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
+    hpo: HPOConfig | None = None
+    plans: tuple[ExperimentPlan, ...] = ()
+    studies: tuple[OptimizationStudy, ...] = ()
+    active_study_id: UUID | None = None
     baseline_experiment_id: UUID | None = None
     baseline: Baseline = Field(default_factory=Baseline)
     patches: tuple[CodePatch, ...] = ()
@@ -84,6 +90,8 @@ class ResearchState(DomainModel):
             self.evidence,
             self.hypotheses,
             self.patches,
+            self.plans,
+            self.studies,
             self.experiments,
             self.trials,
             self.metrics,
@@ -96,6 +104,8 @@ class ResearchState(DomainModel):
         evidence = {item.id for item in self.evidence}
         hypotheses = {item.id for item in self.hypotheses}
         patches = {item.id: item for item in self.patches}
+        plans = {item.id: item for item in self.plans}
+        studies = {item.id: item for item in self.studies}
         experiments = {item.id: item for item in self.experiments}
         trials = {item.id: item for item in self.trials}
         links_valid = (
@@ -103,6 +113,27 @@ class ResearchState(DomainModel):
             and all(item.claim_id in claims for item in self.evidence)
             and all(set(item.evidence_ids) <= evidence for item in self.hypotheses)
             and all(item.hypothesis_id in hypotheses for item in self.patches)
+            and all(
+                item.hypothesis_id in hypotheses
+                and (
+                    item.patch_id is None
+                    or (
+                        item.patch_id in patches
+                        and patches[item.patch_id].hypothesis_id == item.hypothesis_id
+                    )
+                )
+                for item in self.plans
+            )
+            and all(
+                item.research_id == self.research_id
+                and item.hypothesis_id in hypotheses
+                and item.plan_id in plans
+                and plans[item.plan_id].hypothesis_id == item.hypothesis_id
+                and plans[item.plan_id].search_space == item.search_space
+                and plans[item.plan_id].primary_metric == item.primary_metric
+                and plans[item.plan_id].direction == item.direction
+                for item in self.studies
+            )
             and all(
                 item.hypothesis_id is None or item.hypothesis_id in hypotheses
                 for item in self.experiments
@@ -123,8 +154,16 @@ class ResearchState(DomainModel):
                 for item in self.experiments
             )
             and all(
-                item.experiment_id in experiments
-                and experiments[item.experiment_id].hypothesis_id == item.hypothesis_id
+                (
+                    item.experiment_id is None
+                    and item.study_id is not None
+                    and item.study_id in studies
+                )
+                or (
+                    item.experiment_id in experiments
+                    and experiments[item.experiment_id].hypothesis_id == item.hypothesis_id
+                    and (item.study_id is None or item.study_id in studies)
+                )
                 for item in self.decisions
             )
         )
@@ -151,6 +190,36 @@ class ResearchState(DomainModel):
                     raise ValueError("Execution provenance identity does not match the experiment")
         if self.active_hypothesis_id is not None and self.active_hypothesis_id not in hypotheses:
             raise ValueError("Active hypothesis must exist in state")
+        study_ids = set(studies)
+        if self.active_study_id is not None and self.active_study_id not in study_ids:
+            raise ValueError("Active study is missing")
+        hpo_trials = [trial for trial in self.trials if trial.study_id is not None]
+        if self.budget.hpo_trials != len(hpo_trials):
+            raise ValueError("HPO budget usage must equal accepted trial count")
+        if any(
+            t.study_id not in study_ids
+            or t.research_id != self.research_id
+            or t.hypothesis_id != studies[t.study_id].hypothesis_id
+            for t in hpo_trials
+        ):
+            raise ValueError("HPO trial references an unknown study or research run")
+        identities = [(t.study_id, t.optuna_trial_number) for t in hpo_trials]
+        if len(identities) != len(set(identities)):
+            raise ValueError("Duplicate Optuna trial identity")
+        for study in self.studies:
+            members = [trial for trial in hpo_trials if trial.study_id == study.id]
+            best = trials.get(study.best_trial_id) if study.best_trial_id is not None else None
+            successful = sum(trial.status.value == "SUCCEEDED" for trial in members)
+            if study.completed_trials != successful:
+                raise ValueError("Study successful-trial count does not match trial records")
+            if study.failed_trials != sum(trial.status.value == "FAILED" for trial in members):
+                raise ValueError("Study failed-trial count does not match trial records")
+            if study.pruned_trials != sum(trial.status.value == "PRUNED" for trial in members):
+                raise ValueError("Study pruned-trial count does not match trial records")
+            if study.best_trial_id is not None and (
+                best is None or best.study_id != study.id or best.status.value != "SUCCEEDED"
+            ):
+                raise ValueError("Study best trial must be a successful member")
         if self.iteration != self.budget.iterations:
             raise ValueError("Iteration and budget usage must agree")
         if self.budget.experiments != len(self.experiments):

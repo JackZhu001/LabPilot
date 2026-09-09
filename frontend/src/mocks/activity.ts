@@ -1,0 +1,100 @@
+import type { ActivityEvent } from "@/types/domain";
+
+/**
+ * FIXTURE — autonomous research activity feed derived from the run fixtures.
+ * Not a chat transcript: each event is a loop checkpoint or execution record.
+ */
+export const activityEvents: ActivityEvent[] = [
+  {
+    id: "ev-001",
+    research_id: "7ba5ca38-1d49-4901-bc98-a108a11942ea",
+    at: "2026-09-09T13:59:12Z",
+    kind: "decision",
+    title: "Decision: KEEP",
+    detail: "Delta +0.0015 exceeded the minimum improvement of 0.001. Run completed at revision 7.",
+  },
+  {
+    id: "ev-002",
+    research_id: "7ba5ca38-1d49-4901-bc98-a108a11942ea",
+    at: "2026-09-09T13:59:07Z",
+    kind: "metric_collected",
+    title: "Metric collected",
+    detail: "Candidate validation_accuracy = 0.9270 from outputs/metrics.json.",
+    experiment_id: "d2f65154-f321-5e64-b044-c166e87eaf68",
+  },
+  {
+    id: "ev-003",
+    research_id: "7ba5ca38-1d49-4901-bc98-a108a11942ea",
+    at: "2026-09-09T13:59:02Z",
+    kind: "docker_run",
+    title: "Docker run started",
+    detail: "Candidate container from labpilot-mnist:phase2, network none, 2 CPU, 2048 MiB.",
+    experiment_id: "d2f65154-f321-5e64-b044-c166e87eaf68",
+  },
+  {
+    id: "ev-004",
+    research_id: "7ba5ca38-1d49-4901-bc98-a108a11942ea",
+    at: "2026-09-09T13:59:01Z",
+    kind: "patch_applied",
+    title: "Patch applied",
+    detail: "dropout 0.0 → 0.3 in config.yaml, applied in detached worktree d2f65154.",
+    experiment_id: "d2f65154-f321-5e64-b044-c166e87eaf68",
+  },
+  {
+    id: "ev-005",
+    research_id: "7ba5ca38-1d49-4901-bc98-a108a11942ea",
+    at: "2026-09-09T13:58:49Z",
+    kind: "baseline_completed",
+    title: "Baseline completed",
+    detail: "validation_accuracy = 0.9255, runtime 7.6 s, exit code 0.",
+    experiment_id: "24b67028-0f27-5d74-91c3-9e4385aa6b49",
+  },
+  {
+    id: "ev-006",
+    research_id: "7ba5ca38-1d49-4901-bc98-a108a11942ea",
+    at: "2026-09-09T13:58:40Z",
+    kind: "checkpoint",
+    title: "Checkpoint persisted",
+    detail: "Revision 4 committed: baseline recorded, next_step=experiment.",
+  },
+  {
+    id: "ev-007",
+    research_id: "c4e2a90f-1b3d-4a5c-8e6f-2d4b6a8c0e2f",
+    at: "2026-09-09T15:24:45Z",
+    kind: "decision",
+    title: "Decision: KEEP",
+    detail: "Best trial 4 (validation_accuracy 0.9332) exceeded the baseline by 0.0077.",
+  },
+  {
+    id: "ev-008",
+    research_id: "c4e2a90f-1b3d-4a5c-8e6f-2d4b6a8c0e2f",
+    at: "2026-09-09T15:13:20Z",
+    kind: "hpo_trial",
+    title: "Study created",
+    detail: "Optimization study mnist-mlp-dropout-lr-search: TPESampler, seed 42, 8-trial budget.",
+  },
+  {
+    id: "ev-009",
+    research_id: "b3d1f6a2-8c4e-49a7-b5d0-2e7f9c1a4b6d",
+    at: "2026-09-09T11:20:17Z",
+    kind: "replan",
+    title: "Decision: REPLAN",
+    detail: "First candidate delta 0.0004 below threshold 0.01; hypothesis replanned within budget.",
+  },
+  {
+    id: "ev-010",
+    research_id: "b3d1f6a2-8c4e-49a7-b5d0-2e7f9c1a4b6d",
+    at: "2026-09-09T11:20:19Z",
+    kind: "decision",
+    title: "Decision: KEEP",
+    detail: "Second candidate improved validation_accuracy by 0.0192 (threshold 0.01).",
+  },
+  {
+    id: "ev-011",
+    research_id: "e5a3c7f1-0b2d-4e8a-9c4f-6d2b8a0e4c6f",
+    at: "2026-09-09T16:40:34Z",
+    kind: "checkpoint",
+    title: "Iteration 1 started",
+    detail: "Literature, evidence, and hypothesis committed; next_step=experiment.",
+  },
+];

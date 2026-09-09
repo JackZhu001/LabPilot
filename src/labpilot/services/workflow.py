@@ -4,6 +4,9 @@ import logging
 from uuid import uuid5
 
 from labpilot.decisions.engine import DecisionEngine
+from labpilot.hpo.models import TrialStatus
+from labpilot.hpo.selection import select_best
+from labpilot.hpo.service import HPOService, active_study, study_trials
 from labpilot.models.common import (
     ExperimentStatus,
     HypothesisStatus,
@@ -36,7 +39,12 @@ class ResearchWorkflow:
     def advance(self, state: ResearchState, step: Step) -> ResearchState:
         if state.next_step != step or step == Step.END:
             raise ValueError(f"Cannot execute {step} from cursor {state.next_step}")
+        hpo = HPOService(self.services.experiment)
         handlers = {
+            Step.HPO_PLAN: hpo.plan,
+            Step.HPO_SUGGEST: hpo.suggest,
+            Step.HPO_EXECUTE: hpo.execute_trial,
+            Step.HPO_SYNC: hpo.synchronize,
             Step.LITERATURE: self.literature,
             Step.EVIDENCE: self.evidence,
             Step.BASELINE: self.baseline,
@@ -82,7 +90,7 @@ class ResearchWorkflow:
             active_hypothesis_id=hypothesis.id,
             iteration=state.iteration + 1,
             budget=state.budget.consume(iterations=1),
-            next_step=Step.EXPERIMENT,
+            next_step=Step.HPO_PLAN if state.hpo else Step.EXPERIMENT,
         )
 
     def experiment(self, state: ResearchState) -> ResearchState:
@@ -116,7 +124,7 @@ class ResearchWorkflow:
             id=uuid5(experiment.id, "trial:0"),
             experiment_id=experiment.id,
             seed=experiment.config.seed,
-            status=result.status,
+            status=TrialStatus(result.status.value),
         )
         metrics = state.metrics
         if result.value is not None:
@@ -148,6 +156,8 @@ class ResearchWorkflow:
         )
 
     def analyze(self, state: ResearchState) -> ResearchState:
+        if state.hpo and state.active_study_id is not None:
+            return self.analyze_study(state)
         if not state.experiments:
             raise ValueError("Analysis requires an experiment")
         experiment = state.experiments[-1]
@@ -172,6 +182,35 @@ class ResearchWorkflow:
             decision=record.decision, decisions=(*state.decisions, record), next_step=Step.DECISION
         )
 
+    def analyze_study(self, state: ResearchState) -> ResearchState:
+        study = active_study(state)
+        trials = study_trials(state)
+        best = select_best(trials, study.direction)
+        if best is None:
+            result = ExperimentResult(
+                status=ExperimentStatus.FAILED,
+                error=study.failure_reason or "Study has no successful trials",
+            )
+        else:
+            result = ExperimentResult(
+                status=ExperimentStatus.SUCCEEDED, value=best.primary_metric_value
+            )
+        budget = state.budget
+        if not budget.can_run_hpo_trial():
+            # Disable retries only; numerical comparison remains entirely in DecisionEngine.
+            budget = budget.model_copy(update={"max_replans": budget.replans})
+        assessment = self.engine.decide(result, state.baseline, budget)
+        selected = best or (trials[-1] if trials else None)
+        record = DecisionRecord(
+            experiment_id=selected.experiment_id if selected else None,
+            hypothesis_id=study.hypothesis_id,
+            study_id=study.id,
+            **assessment.model_dump(),
+        )
+        return state.evolve(
+            decision=record.decision, decisions=(*state.decisions, record), next_step=Step.DECISION
+        )
+
     def decision(self, state: ResearchState) -> ResearchState:
         if state.decision is None:
             raise ValueError("Decision step requires analysis")
@@ -190,7 +229,8 @@ class ResearchWorkflow:
         if state.decision == ResearchDecision.REPLAN and state.budget.can_replan():
             next_step = (
                 Step.BASELINE
-                if state.experiments[-1].purpose == ExperimentPurpose.BASELINE
+                if state.decisions[-1].study_id is None
+                and state.experiments[-1].purpose == ExperimentPurpose.BASELINE
                 else Step.HYPOTHESIS
             )
             return state.evolve(budget=state.budget.consume(replans=1), next_step=next_step)

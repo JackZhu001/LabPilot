@@ -6,6 +6,7 @@ from uuid import UUID
 
 from langgraph.graph import END, START, StateGraph
 
+from labpilot.hpo.reporting import export_studies
 from labpilot.models.common import RunStatus, Step
 from labpilot.models.state import ResearchState
 from labpilot.persistence.repository import ResearchRepository
@@ -59,6 +60,8 @@ def execute(
             if stop_after is not None and count >= stop_after and updated.next_step != Step.END:
                 updated = updated.evolve(status=RunStatus.PAUSED)
             updated = repository.save(updated)
+            if updated.studies:
+                export_studies(updated)
             logger.info(
                 "checkpoint research_id=%s step=%s next_step=%s revision=%s",
                 updated.research_id,
@@ -84,6 +87,7 @@ def execute(
         config={
             "recursion_limit": 4 * research.budget.max_iterations
             + 3 * research.budget.max_experiments
+            + 3 * research.budget.max_hpo_trials
             + 10
         },
     )

@@ -48,6 +48,7 @@ def test_cli_bad_input(tmp_path: Path) -> None:
         ["run", "--goal", "Goal", "--stop-after", "0"],
         ["run", "--goal", "   "],
         ["run", "--goal", "Goal", "--max-iterations", "-1"],
+        ["run", "--goal", "Goal", "--hpo"],
         ["status", "invalid-uuid"],
         ["resume", str(uuid4())],
     ]:

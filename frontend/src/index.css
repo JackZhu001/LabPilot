@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/*
+ * LabPilot design tokens — single light theme, "lab instrument" language.
+ * Cool neutrals, one restrained blue accent, semantic status colors.
+ */
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Surfaces */
+  --color-bg: oklch(0.977 0.002 250);
+  --color-surface: oklch(1 0 0);
+  --color-surface-2: oklch(0.968 0.003 250);
+  --color-surface-3: oklch(0.945 0.004 250);
+  --color-line: oklch(0.916 0.005 253);
+  --color-line-strong: oklch(0.855 0.006 253);
+
+  /* Text */
+  --color-ink: oklch(0.245 0.012 258);
+  --color-ink-2: oklch(0.375 0.012 258);
+  --color-muted: oklch(0.517 0.013 258);
+  --color-faint: oklch(0.635 0.011 256);
+
+  /* Accent — restrained technical blue */
+  --color-accent: oklch(0.51 0.177 259);
+  --color-accent-strong: oklch(0.43 0.177 260);
+  --color-accent-soft: oklch(0.955 0.022 255);
+  --color-accent-ink: oklch(0.405 0.16 260);
+
+  /* Semantic */
+  --color-success: oklch(0.5 0.12 155);
+  --color-success-soft: oklch(0.962 0.03 155);
+  --color-warning: oklch(0.5 0.11 70);
+  --color-warning-soft: oklch(0.962 0.04 80);
+  --color-danger: oklch(0.5 0.19 27);
+  --color-danger-soft: oklch(0.958 0.025 20);
+  --color-neutral-soft: oklch(0.945 0.004 250);
+
+  /* Radius scale — small, consistent */
+  --radius-panel: 0.5rem;
+}
+
+html {
+  font-size: 15px;
+}
+
+body {
+  @apply bg-bg text-ink font-sans antialiased;
+  font-feature-settings: "tnum" 1;
+}
+
+::selection {
+  background: var(--color-accent-soft);
+}
+
+/* Thin, unobtrusive scrollbars for dense areas */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

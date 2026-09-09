@@ -13,6 +13,8 @@ dependencies = [
   "pydantic>=2.10,<3",
   "sqlalchemy>=2.0,<3",
   "typer>=0.16,<1",
+  "optuna>=4.5,<5",
+  "numpy>=1.26,<2.5", # Keep NumPy stubs compatible with the Python 3.11 type-check target.
 ]
 
 [project.optional-dependencies]
