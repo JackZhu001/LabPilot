@@ -98,8 +98,8 @@ class WorktreeManager:
         if self.get_head_sha(path) != expected_sha:
             raise GitError("patch", "Patch base commit does not match worktree")
         self.validate_patch(diff)
-        git(path, "apply", "--check", "--index", "-", input_text=diff)
-        git(path, "apply", "--index", "-", input_text=diff)
+        git(path, "apply", "--check", "--recount", "--index", "-", input_text=diff)
+        git(path, "apply", "--recount", "--index", "-", input_text=diff)
 
     def get_diff(self, path: Path) -> str:
         return git(self._managed(path), "diff", "HEAD", "--binary", "--no-ext-diff")

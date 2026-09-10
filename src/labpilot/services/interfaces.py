@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
+from labpilot.literature.providers import LiteratureProvider as SearchLiteratureProvider
+from labpilot.llm.client import LLMClient
 from labpilot.models.experiments import Baseline, Experiment, ExperimentResult
 from labpilot.models.literature import Claim, Evidence, Hypothesis, Paper
 
@@ -36,3 +38,5 @@ class ResearchServices:
     evidence: EvidenceExtractor
     hypothesis: HypothesisGenerator
     experiment: ExperimentRunner
+    llm: LLMClient | None = None
+    literature_providers: tuple[SearchLiteratureProvider, ...] = ()

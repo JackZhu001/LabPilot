@@ -16,10 +16,13 @@ from labpilot.graph.workflow import execute
 from labpilot.hpo.models import HPOConfig
 from labpilot.hpo.optuna import StudyConflictError
 from labpilot.hpo.reporting import format_studies
+from labpilot.llm.errors import LLMError
+from labpilot.llm.models import LLMSettings
 from labpilot.models.budget import ResearchBudget
-from labpilot.models.common import FakeOutcome
+from labpilot.models.common import FakeOutcome, Step
 from labpilot.models.execution import ExecutionConfig, ExecutionEnvironment
 from labpilot.models.experiments import Baseline
+from labpilot.models.literature import LiteratureSettings
 from labpilot.models.state import ResearchState, SimulationConfig
 from labpilot.persistence.repository import (
     RunNotFoundError,
@@ -52,6 +55,7 @@ def repository_at(path: Path) -> Iterator[SQLiteResearchRepository]:
         OSError,
         GitError,
         StudyConflictError,
+        LLMError,
     ) as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1) from exc
@@ -90,6 +94,19 @@ def print_summary(state: ResearchState) -> None:
 
     if state.studies:
         typer.echo(format_studies(state))
+    if state.llm is not None:
+        typer.echo(f"LLM: {state.llm.provider}/{state.llm.model}")
+        typer.echo(
+            f"LLM usage: {state.budget.llm_calls}/{state.budget.max_llm_calls} calls, "
+            f"{state.budget.llm_tokens}/{state.budget.max_llm_tokens} tokens"
+        )
+    if state.literature_settings.enabled:
+        typer.echo(
+            f"Literature: {state.budget.literature_queries}/"
+            f"{state.budget.max_literature_queries} queries, "
+            f"{len(state.papers)} papers, {len(state.claims)} claims, "
+            f"{len(state.evidence)} evidence records"
+        )
 
 
 @app.callback()
@@ -123,6 +140,17 @@ def run(
         int, typer.Option(min=1, help="Trials per study and total HPO trial limit.")
     ] = 6,
     sampler_seed: Annotated[int, typer.Option(min=0, max=2**32 - 1)] = 42,
+    agent: Annotated[bool, typer.Option(help="Use the DeepSeek outer research loop.")] = False,
+    literature: Annotated[
+        bool, typer.Option(help="Ground the DeepSeek agent in arXiv and Semantic Scholar.")
+    ] = False,
+    max_literature_queries: Annotated[int, typer.Option(min=1, max=3)] = 2,
+    max_papers: Annotated[int, typer.Option(min=1)] = 6,
+    max_claims: Annotated[int, typer.Option(min=1)] = 12,
+    max_claims_per_paper: Annotated[int, typer.Option(min=1, max=3)] = 2,
+    max_llm_calls: Annotated[int, typer.Option(min=1)] = 10,
+    max_llm_tokens: Annotated[int, typer.Option(min=256)] = 100_000,
+    max_patch_repairs: Annotated[int, typer.Option(min=0, max=2)] = 1,
     executor: Annotated[ExecutionEnvironment, typer.Option()] = ExecutionEnvironment.FAKE,
     repo: Annotated[Path | None, typer.Option(help="Clean dedicated baseline repository.")] = None,
     patch: Annotated[
@@ -149,6 +177,10 @@ def run(
         raise typer.BadParameter("--repo requires --executor docker")
     if hpo and executor != ExecutionEnvironment.DOCKER:
         raise typer.BadParameter("--hpo requires --executor docker")
+    if agent and executor != ExecutionEnvironment.DOCKER:
+        raise typer.BadParameter("--agent requires --executor docker")
+    if literature and not agent:
+        raise typer.BadParameter("--literature requires --agent")
     with repository_at(db) as repository:
         execution = (
             configure_docker(
@@ -162,19 +194,40 @@ def run(
             if repo
             else None
         )
+        settings = (
+            LLMSettings.from_environment().model_copy(
+                update={"max_patch_repairs": max_patch_repairs}
+            )
+            if agent
+            else None
+        )
         state = repository.create(
             ResearchState(
                 research_goal=goal,
+                next_step=Step.INSPECT_REPOSITORY if agent else Step.LITERATURE,
                 simulation=scenario,
                 baseline=Baseline(min_delta=min_delta),
                 execution=execution or ExecutionConfig(runtime_root=runtime_root.resolve()),
                 hpo=HPOConfig(max_trials=trials, sampler_seed=sampler_seed) if hpo else None,
+                llm=settings,
+                literature_settings=LiteratureSettings(
+                    enabled=literature, max_claims_per_paper=max_claims_per_paper
+                ),
                 budget=ResearchBudget(
+                    max_literature_queries=max_literature_queries if literature else 0,
+                    max_papers=max_papers if literature else 0,
+                    max_claims=max_claims if literature else 0,
                     max_iterations=max_iterations,
                     max_experiments=(
-                        max_experiments if max_experiments is not None else trials + 1 if hpo else 3
+                        max_experiments
+                        if max_experiments is not None
+                        else trials + 1
+                        if hpo or agent
+                        else 3
                     ),
-                    max_hpo_trials=trials if hpo else 0,
+                    max_hpo_trials=trials if hpo or agent else 0,
+                    max_llm_calls=max_llm_calls if agent else 0,
+                    max_llm_tokens=max_llm_tokens if agent else 0,
                     max_failed_experiments=max_failed_experiments,
                     max_replans=max_replans,
                 ),

@@ -9,7 +9,7 @@ from labpilot.execution.git import GitError, git
 from labpilot.execution.runner import DockerExperimentRunner
 from labpilot.models.common import ExperimentStatus
 from labpilot.models.execution import ExecutionConfig, ExperimentArtifact, ExperimentPurpose
-from labpilot.models.experiments import Baseline, Experiment
+from labpilot.models.experiments import Baseline, Experiment, ExperimentConfig
 from labpilot.services.real import configure_docker, prepare_example
 
 
@@ -94,6 +94,20 @@ def test_success_records_exact_source(execution_config: ExecutionConfig) -> None
     assert result.execution.artifacts.stdout_path.exists()
     assert result.execution.artifacts.stderr_path.exists()
     assert git(execution_config.baseline_repo_path, "status", "--porcelain") == ""
+
+
+def test_experiment_patch_overrides_stale_runner_configuration(
+    execution_config: ExecutionConfig,
+) -> None:
+    patch = (
+        "--- a/config.yaml\n+++ b/config.yaml\n@@ -1,2 +1,2 @@\n"
+        " seed: 42\n-dropout: 0.0\n+dropout: 0.1\n"
+    )
+    candidate = experiment().model_copy(update={"config": ExperimentConfig(patch_diff=patch)})
+    result = DockerExperimentRunner(execution_config, FixtureDocker()).run(candidate, Baseline())
+    assert result.status == ExperimentStatus.SUCCEEDED
+    assert "+dropout: 0.1" in result.execution.git.actual_git_diff
+    assert "+dropout: 0.3" not in result.execution.git.actual_git_diff
 
 
 @pytest.mark.parametrize(

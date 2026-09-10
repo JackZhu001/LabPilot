@@ -1,10 +1,16 @@
 """Offline fixtures with stable IDs and explicitly simulated outcomes."""
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from uuid import UUID, uuid5
 
-from labpilot.models.common import EvidenceRelation, ExperimentStatus, FakeOutcome
+from labpilot.models.common import (
+    EvidenceRelation,
+    ExperimentStatus,
+    FakeOutcome,
+    GroundingStatus,
+    SourceScope,
+)
 from labpilot.models.experiments import Baseline, Experiment, ExperimentResult
 from labpilot.models.literature import Claim, Evidence, Hypothesis, Paper
 from labpilot.models.state import SimulationConfig
@@ -22,6 +28,7 @@ class FakeLiteratureProvider:
                 published_at=date(2024, 1, 1),
                 external_id="fixture:0",
                 source_provider="fake",
+                retrieved_at=datetime(2024, 1, 1, tzinfo=UTC),
             ),
         )
 
@@ -34,6 +41,8 @@ class FakeEvidenceExtractor:
                 paper_id=paper.id,
                 statement="A controlled intervention may improve the objective (synthetic).",
                 confidence=0.5,
+                source_span="Synthetic fixture; not a real publication or scientific evidence.",
+                source_scope=SourceScope.ABSTRACT,
             )
             for paper in papers
         )
@@ -41,6 +50,7 @@ class FakeEvidenceExtractor:
             Evidence(
                 id=uuid5(claim.id, "evidence:0"),
                 claim_id=claim.id,
+                paper_id=claim.paper_id,
                 relation=EvidenceRelation.SUPPORT,
                 summary="Synthetic supporting evidence used only to exercise provenance.",
                 confidence=0.5,
@@ -59,6 +69,9 @@ class FakeHypothesisGenerator:
             statement=f"Synthetic hypothesis {iteration}: {goal}",
             motivation="Exercise the research loop with traceable fixture evidence.",
             evidence_ids=tuple(item.id for item in evidence),
+            supporting_evidence_ids=tuple(item.id for item in evidence),
+            evidence_confidence=0.5,
+            grounding_status=GroundingStatus.LITERATURE_GROUNDED,
             expected_effect="Improve the configured objective by the minimum delta.",
             confidence=0.5,
             estimated_cost=0,

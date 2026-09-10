@@ -15,6 +15,8 @@ dependencies = [
   "typer>=0.16,<1",
   "optuna>=4.5,<5",
   "numpy>=1.26,<2.5", # Keep NumPy stubs compatible with the Python 3.11 type-check target.
+  "openai>=1.109,<3",
+  "httpx>=0.27,<1",
 ]
 
 [project.optional-dependencies]
@@ -25,8 +27,12 @@ labpilot = "labpilot.cli.app:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-m 'not docker'"
-markers = ["docker: requires a running Docker daemon; may prepare an image over the network"]
+addopts = "-m 'not docker and not live_llm and not live_literature'"
+markers = [
+  "docker: requires a running Docker daemon; may prepare an image over the network",
+  "live_llm: requires explicit DeepSeek credentials and network access",
+  "live_literature: requires explicit network access to literature APIs",
+]
 
 [tool.ruff]
 line-length = 100

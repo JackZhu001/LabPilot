@@ -9,6 +9,10 @@ from uuid import uuid5
 from labpilot.execution.git import WorktreeManager, git
 from labpilot.execution.runner import DockerExperimentRunner
 from labpilot.hpo.models import TrialStatus
+from labpilot.literature.arxiv import ArxivProvider
+from labpilot.literature.providers import LiteratureProvider
+from labpilot.literature.semantic_scholar import SemanticScholarProvider
+from labpilot.llm.deepseek import DeepSeekLLMClient
 from labpilot.models.common import ExperimentStatus, Step
 from labpilot.models.execution import ExecutionConfig, ExecutionEnvironment, ExperimentPurpose
 from labpilot.models.experiments import (
@@ -27,7 +31,20 @@ from labpilot.services.interfaces import ResearchServices
 def services_for(state: ResearchState) -> ResearchServices:
     services = fake_services(state.simulation)
     if state.execution.environment == ExecutionEnvironment.DOCKER:
-        return replace(services, experiment=DockerExperimentRunner(state.execution))
+        services = replace(services, experiment=DockerExperimentRunner(state.execution))
+    if state.llm is not None:
+        services = replace(services, llm=DeepSeekLLMClient(state.llm))
+    if state.literature_settings.enabled:
+        available: dict[str, LiteratureProvider] = {
+            "arxiv": ArxivProvider(),
+            "semantic_scholar": SemanticScholarProvider(),
+        }
+        services = replace(
+            services,
+            literature_providers=tuple(
+                available[name] for name in state.literature_settings.providers
+            ),
+        )
     return services
 
 
@@ -114,17 +131,21 @@ def execute_real_experiment(
     experiment_id = uuid5(state.research_id, identity)
     hypothesis_id = None if baseline_run else state.active_hypothesis_id
     patch: CodePatch | None = None
+    plan = next((item for item in state.plans if item.id == state.active_plan_id), None)
     if not baseline_run:
         if hypothesis_id is None:
             raise ValueError("Candidate experiment requires a hypothesis")
-        patch = CodePatch(
-            id=uuid5(experiment_id, "patch"),
-            hypothesis_id=hypothesis_id,
-            experiment_id=experiment_id,
-            base_commit_sha=state.execution.base_commit_sha,
-            description="Predefined experiment patch",
-            diff=state.execution.patch_diff,
-        )
+        if plan is not None and plan.patch_id is not None:
+            patch = next(item for item in state.patches if item.id == plan.patch_id)
+        elif plan is None and state.execution.patch_diff:
+            patch = CodePatch(
+                id=uuid5(experiment_id, "patch"),
+                hypothesis_id=hypothesis_id,
+                experiment_id=experiment_id,
+                base_commit_sha=state.execution.base_commit_sha,
+                description="Predefined experiment patch",
+                diff=state.execution.patch_diff,
+            )
     experiment = Experiment(
         id=experiment_id,
         research_id=state.research_id,
@@ -134,6 +155,9 @@ def execute_real_experiment(
         patch_id=patch.id if patch else None,
         status=ExperimentStatus.RUNNING,
         config=ExperimentConfig(
+            overrides=plan.configuration_overrides if plan is not None else None,
+            apply_patch=patch is not None,
+            patch_diff=patch.diff if patch is not None else "",
             seed=state.simulation.seed,
             metric_name=state.baseline.metric_name,
             direction=state.baseline.direction,
@@ -174,11 +198,12 @@ def execute_real_experiment(
                 for name, value in values.items()
             ),
         )
+    patches = state.patches if patch is None or patch in state.patches else (*state.patches, patch)
     changes: dict[str, object] = {
         "experiments": (*state.experiments, experiment),
         "trials": (*state.trials, trial),
         "metrics": metrics,
-        "patches": (*state.patches, patch) if patch else state.patches,
+        "patches": patches,
         "budget": state.budget.consume(
             experiments=1, failed_experiments=int(result.status == ExperimentStatus.FAILED)
         ),
@@ -190,6 +215,6 @@ def execute_real_experiment(
                 {**state.baseline.model_dump(), "value": result.value}
             ),
             baseline_experiment_id=experiment.id,
-            next_step=Step.HYPOTHESIS,
+            next_step=Step.GENERATE_HYPOTHESES if state.llm else Step.HYPOTHESIS,
         )
     return state.evolve(**changes)

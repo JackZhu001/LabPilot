@@ -42,5 +42,7 @@ class OptunaParameterMapper:
 
 
 def experiment_config(base: ExperimentConfig, parameters: SampledParameters) -> ExperimentConfig:
-    overrides = TrainingOverrides.model_validate(parameters.as_dict())
+    values = base.overrides.model_dump(exclude_none=True) if base.overrides else {}
+    values.update(parameters.as_dict())
+    overrides = TrainingOverrides.model_validate(values)
     return ExperimentConfig.model_validate({**base.model_dump(), "overrides": overrides})

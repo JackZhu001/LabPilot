@@ -63,11 +63,16 @@ class DockerExperimentRunner:
         configuration_text: str | None = None
         source_hash: str | None = None
         try:
-            patch = config.patch_diff if experiment.purpose == ExperimentPurpose.CANDIDATE else ""
+            patch = (
+                experiment.config.patch_diff or config.patch_diff
+                if experiment.purpose == ExperimentPurpose.CANDIDATE
+                and experiment.config.apply_patch
+                else ""
+            )
             artifacts.patch_path.write_text(patch)
             path = self.worktrees.create_worktree(experiment.id, config.base_commit_sha)
             created = True
-            if experiment.purpose == ExperimentPurpose.CANDIDATE:
+            if experiment.purpose == ExperimentPurpose.CANDIDATE and patch:
                 self.worktrees.apply_patch(path, patch, config.base_commit_sha)
             actual_diff = self.worktrees.get_diff(path)
             artifacts.actual_diff_path.write_text(actual_diff)

@@ -1,12 +1,15 @@
 """Research transitions independent of LangGraph, SQLAlchemy, and the CLI."""
 
 import logging
+from collections.abc import Callable
 from uuid import uuid5
 
+from labpilot.agent.service import AgentLoopService
 from labpilot.decisions.engine import DecisionEngine
 from labpilot.hpo.models import TrialStatus
 from labpilot.hpo.selection import select_best
 from labpilot.hpo.service import HPOService, active_study, study_trials
+from labpilot.literature.agent import LiteratureAgentService
 from labpilot.models.common import (
     ExperimentStatus,
     HypothesisStatus,
@@ -40,7 +43,40 @@ class ResearchWorkflow:
         if state.next_step != step or step == Step.END:
             raise ValueError(f"Cannot execute {step} from cursor {state.next_step}")
         hpo = HPOService(self.services.experiment)
+        agent = AgentLoopService(self.services.llm) if self.services.llm is not None else None
+        literature_agent = (
+            LiteratureAgentService(self.services)
+            if self.services.llm is not None and state.literature_settings.enabled
+            else None
+        )
+
+        def agent_handler(name: str) -> Callable[[ResearchState], ResearchState]:
+            def run(current: ResearchState) -> ResearchState:
+                if agent is None:
+                    raise ValueError(f"{name} requires an LLM service")
+                handler: Callable[[ResearchState], ResearchState] = getattr(agent, name)
+                return handler(current)
+
+            return run
+
         handlers = {
+            Step.INSPECT_REPOSITORY: agent_handler("inspect_repository"),
+            Step.PLAN_LITERATURE_QUERIES: literature_agent.plan_queries
+            if literature_agent
+            else self._missing_literature,
+            Step.RETRIEVE_PAPERS: literature_agent.retrieve_papers
+            if literature_agent
+            else self._missing_literature,
+            Step.EXTRACT_CLAIMS: literature_agent.extract_claims
+            if literature_agent
+            else self._missing_literature,
+            Step.SYNTHESIZE_EVIDENCE: literature_agent.synthesize_evidence
+            if literature_agent
+            else self._missing_literature,
+            Step.GENERATE_HYPOTHESES: agent_handler("generate_hypotheses"),
+            Step.PLAN_EXPERIMENT: agent_handler("plan_experiment"),
+            Step.GENERATE_PATCH: agent_handler("generate_patch"),
+            Step.CRITIQUE: agent_handler("critique"),
             Step.HPO_PLAN: hpo.plan,
             Step.HPO_SUGGEST: hpo.suggest,
             Step.HPO_EXECUTE: hpo.execute_trial,
@@ -54,6 +90,11 @@ class ResearchWorkflow:
             Step.DECISION: self.decision,
         }
         return handlers[step](state)
+
+    @staticmethod
+    def _missing_literature(state: ResearchState) -> ResearchState:
+        del state
+        raise ValueError("Literature steps require enabled settings and an LLM service")
 
     def literature(self, state: ResearchState) -> ResearchState:
         papers = self.services.literature.retrieve(state.research_id, state.research_goal)
@@ -179,7 +220,13 @@ class ResearchWorkflow:
             **assessment.model_dump(),
         )
         return state.evolve(
-            decision=record.decision, decisions=(*state.decisions, record), next_step=Step.DECISION
+            decision=record.decision,
+            decisions=(*state.decisions, record),
+            next_step=(
+                Step.CRITIQUE
+                if state.llm and state.active_hypothesis_id is not None
+                else Step.DECISION
+            ),
         )
 
     def analyze_study(self, state: ResearchState) -> ResearchState:
@@ -208,7 +255,9 @@ class ResearchWorkflow:
             **assessment.model_dump(),
         )
         return state.evolve(
-            decision=record.decision, decisions=(*state.decisions, record), next_step=Step.DECISION
+            decision=record.decision,
+            decisions=(*state.decisions, record),
+            next_step=Step.CRITIQUE if state.llm else Step.DECISION,
         )
 
     def decision(self, state: ResearchState) -> ResearchState:
@@ -231,6 +280,8 @@ class ResearchWorkflow:
                 Step.BASELINE
                 if state.decisions[-1].study_id is None
                 and state.experiments[-1].purpose == ExperimentPurpose.BASELINE
+                else Step.GENERATE_HYPOTHESES
+                if state.llm
                 else Step.HYPOTHESIS
             )
             return state.evolve(budget=state.budget.consume(replans=1), next_step=next_step)

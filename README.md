@@ -10,14 +10,14 @@ decision to a measurable result.
 Literature → Evidence → Hypothesis → Experiment → Metric → Keep / Reject / Replan
 ```
 
-**Current scope: Phase 3 — resumable hierarchical hyperparameter optimization.**
-Fake mode preserves the fast, offline research loop. Docker mode measures a CPU
-MNIST baseline, runs a fixed candidate across a typed Optuna search space, and
-feeds the best successful trial into the existing deterministic decision engine.
-
-No LLM calls, generated hypotheses or patches, or real literature retrieval are
-implemented. The literature, evidence, and hypothesis stages still use explicit
-fixtures; Docker execution, metrics, and inner-loop parameter search are real.
+**Current scope: Phase 5 — scientific literature-grounded experimentation.** Fake mode
+preserves the fast offline fixtures. Agent mode uses a provider-independent typed
+interface with DeepSeek to inspect a bounded repository context, propose and plan a
+hypothesis, generate a validated patch when required, and explain the measured
+result. An optional bounded literature path plans scholarly queries, retrieves and
+deduplicates arXiv/Semantic Scholar metadata, verifies claims against exact abstract
+spans, synthesizes explicit evidence relations, and keeps provenance through the
+selected hypothesis. Git, Docker, Optuna, and DecisionEngine retain execution authority.
 
 ## Why this project exists
 
@@ -45,6 +45,18 @@ chatbot roles.
   failed-trial continuation, and deterministic best-trial selection.
 - One isolated Docker experiment per accepted trial, with a generated validated
   parameter file retained in its source snapshot.
+- Provider-independent structured LLM calls with a DeepSeek OpenAI-compatible
+  adapter, bounded retries, and persisted request/token/latency provenance.
+- Deterministic repository context selection that excludes secrets, datasets,
+  binaries, generated outputs, and oversized files.
+- Multi-role outer-loop services for repository inspection, hypotheses, planning,
+  code patches, and supplemental critique, each returning validated schemas.
+- Provider-independent arXiv and Semantic Scholar retrieval with deterministic
+  DOI/arXiv/title deduplication, response caching, and per-provider degradation.
+- Abstract-scoped claim fidelity checks, explicit SUPPORT/CONTRADICT/NEUTRAL
+  evidence, conflict/gap synthesis, and hypothesis-to-paper provenance.
+- Disposable-worktree patch checks, target/path/size policy, repair limits, and
+  Python syntax preflight before training.
 - CLI inspection, JSON export to stdout, and standard logging with research,
   hypothesis, study, trial, and experiment identifiers.
 
@@ -70,12 +82,17 @@ Business logic lives in `services/workflow.py`, numerical comparison in
 `decisions/engine.py`, and storage in `persistence/repository.py`.
 
 ```text
-START → literature → evidence → hypothesis ─────────→ experiment → analyze → decision
-                                   │                                  ↑          │
-                                   └→ plan → suggest → execute → sync ┘          │
-                                   ↑                                             │
-                                   └──────────── REPLAN, budget allows ──────────┤
-                                                                   KEEP/REJECT → END
+Goal → inspect repository → query literature → papers → claims → evidence
+                                                            ↓
+                         measured baseline → grounded hypotheses → plan
+                                                  │             │
+                                                  │             ├→ config experiment
+                                                  │             ├→ patch → Docker
+                                                  │             └→ patch → Optuna → Docker trials
+                                                  │                              ↓
+                                                  └──── REPLAN ← critic ← metric analysis
+                                                                               ↓
+                                                                  KEEP / REJECT → END
 ```
 
 Every entry is routed from the saved `next_step`. Before creating a hypothesis or
@@ -167,8 +184,14 @@ LabPilot/
 ├── .gitignore
 ├── docs/phase2-report.md
 ├── docs/phase3-report.md
+├── docs/phase4-report.md
+├── docs/phase5-report.md
 ├── src/
 │   └── labpilot/
+│       ├── agent/
+│       │   ├── patches.py
+│       │   ├── repository.py
+│       │   └── service.py
 │       ├── cli/
 │       │   ├── __init__.py
 │       │   └── app.py
@@ -193,6 +216,12 @@ LabPilot/
 │       │   ├── search_space.py
 │       │   ├── selection.py
 │       │   └── service.py
+│       ├── llm/
+│       │   ├── client.py
+│       │   ├── deepseek.py
+│       │   ├── errors.py
+│       │   ├── fake.py
+│       │   └── models.py
 │       ├── models/
 │       │   ├── __init__.py
 │       │   ├── budget.py
@@ -203,8 +232,15 @@ LabPilot/
 │       │   ├── state.py
 │       │   └── training.py
 │       ├── persistence/
+│       ├── literature/
 │       │   ├── __init__.py
 │       │   └── repository.py
+│       ├── prompts/
+│       │   ├── repository_inspection.md
+│       │   ├── hypothesis_generation.md
+│       │   ├── experiment_planning.md
+│       │   ├── code_patch_generation.md
+│       │   └── research_critic.md
 │       ├── services/
 │       │   ├── __init__.py
 │       │   ├── fakes.py
@@ -226,15 +262,21 @@ LabPilot/
 ├── tests/
 │   ├── docker/
 │   │   └── test_integration.py
+│   ├── live/
+│   │   └── test_deepseek.py
 │   ├── __init__.py
 │   ├── conftest.py
 │   ├── test_cli.py
+│   ├── test_agent_models.py
+│   ├── test_agent_safety.py
+│   ├── test_agent_workflow.py
 │   ├── test_decisions.py
 │   ├── test_docker_adapter.py
 │   ├── test_fakes.py
 │   ├── test_git_execution.py
 │   ├── test_hpo_models.py
 │   ├── test_hpo_workflow.py
+│   ├── test_llm.py
 │   ├── test_metric_reports.py
 │   ├── test_models.py
 │   ├── test_persistence.py
@@ -246,10 +288,12 @@ LabPilot/
 Phase 2 adds `execution/{git,docker,runner,metrics,artifacts}.py`,
 `models/execution.py`, `services/real.py`, the MNIST example, and execution tests.
 Phase 3 adds `hpo/`, typed training overrides, study/trial state, and HPO tests.
+Phase 4 adds `agent/`, `llm/`, versioned prompts, typed outer-loop state, bounded
+repository inspection and patch validation, plus offline and live DeepSeek tests.
 Existing schema-version-1 snapshots remain readable because extensions have
 compatible defaults. No database migration was needed. Optuna uses its own scoped
 database for sampler state; it does not replace the LabPilot checkpoint repository.
-LLMs, prompts, and search provider implementations remain deferred.
+Literature search and retrieval remain deferred to Phase 5.
 
 ## Setup
 
@@ -274,7 +318,7 @@ uv run labpilot --help
 The default database is `.labpilot/labpilot.sqlite3`, relative to the current
 working directory. Use the same `--db` path across commands when changing directories.
 The CLI creates parent directories and initializes tables as needed; `init` is
-optional and idempotent. `.env.example` documents that no credentials are required;
+optional and idempotent. `.env.example` documents the optional DeepSeek settings;
 the app does not load `.env` files. Keep optional LangSmith tracing disabled for
 offline execution if it was enabled in your shell by another application.
 
@@ -333,6 +377,25 @@ final run output show every trial, its parameters, metric, runtime, best trial,
 baseline, and raw delta. Use `--stop-after N` and then `resume` to exercise a fresh
 process restart; committed trials are not executed again.
 
+Run the bounded Phase 4 DeepSeek outer loop:
+
+```bash
+export DEEPSEEK_API_KEY="..."
+export DEEPSEEK_BASE_URL="https://api.deepseek.com"
+export DEEPSEEK_MODEL="deepseek-v4-pro"
+labpilot prepare-example .labpilot/baselines/mnist-phase4
+labpilot run --goal "Improve validation accuracy while keeping the model lightweight" \
+  --agent --executor docker --repo .labpilot/baselines/mnist-phase4 \
+  --max-iterations 2 --max-llm-calls 10 --trials 4 \
+  --max-patch-repairs 1 --max-replans 1 --min-delta 0.001
+```
+
+Credentials are read only from the process environment. They are never accepted as
+CLI arguments or stored in state, SQLite, prompts, artifacts, reports, or logs.
+`DEEPSEEK_BASE_URL` and `DEEPSEEK_MODEL` default to the values above. Agent mode
+requires Docker. Use `status` to inspect persisted structured outputs and usage;
+ordinary `resume` starts at the next uncommitted logical role.
+
 ## Development
 
 ```bash
@@ -349,8 +412,12 @@ restart at every nonterminal step of a two-iteration run, exceptions before comm
 committed experiments not rerunning, and CLI behavior. Tests use temporary databases.
 
 The [measured Phase 2 report](docs/phase2-report.md) and
-[measured Phase 3 report](docs/phase3-report.md) record the local demos and
-verification results.
+[measured Phase 3 report](docs/phase3-report.md) record earlier demos. The
+[measured Phase 4 report](docs/phase4-report.md) records the real DeepSeek agent
+loop, token usage, Docker result, and baseline integrity. The
+[Phase 4.1 code-plus-HPO validation](docs/phase4-code-hpo-validation.md) records a
+real DeepSeek-generated model patch executed across four Optuna/Docker trials,
+including exact diff provenance and zero-work completed resume.
 
 ## Phase 2: isolated real execution
 
@@ -559,10 +626,53 @@ an Optuna trial. The per-trial seed policy is recorded as
 `seed_plus_trial_number_v1`, so a restarted process reproduces the same remaining
 suggestion sequence without relying on an in-memory sampler RNG.
 
+## Phase 4: structured agent harness
+
+Phase 4 adds five bounded logical roles: repository inspection, hypothesis
+generation, experiment planning, code generation, and research critique. They are
+not independent chat loops. LangGraph invokes one typed service per durable cursor,
+and every accepted result enters the shared `ResearchState` before the next role.
+Deterministic capabilities remain ordinary tools behind the harness.
+
+`LLMClient.generate_structured()` is provider-independent. `DeepSeekLLMClient`
+implements it through the OpenAI-compatible Chat Completions API with JSON mode,
+Pydantic JSON Schema instructions, validation feedback, and bounded retries. The
+default model is `deepseek-v4-pro`; the base URL, model, and API key come from
+environment variables. Only model/base URL settings are persisted. Request IDs,
+operation/template identity, input/output/cached/reasoning token counts, model, and
+latency are stored in `LLMUsage` records.
+
+The deterministic inspector starts from tracked Git files, caps tree, file, and
+total context sizes, and selects relevant text sources. It excludes `.git`, virtual
+environments, dependencies, datasets, outputs, logs, binary files, `.env*`, and
+credential/secret names. Large source text is not stored in `ResearchState`; the
+typed summary and bounded file metadata are stored.
+
+Hypotheses explicitly use `REPOSITORY_AND_EXPERIMENT_HISTORY` as their evidence
+source. A maximum batch of three is ranked deterministically by confidence,
+expected impact, estimated cost, duplicate history, and lexical tie-breaking. The
+planner returns one typed `CONFIG_ONLY`, `CODE_CHANGE`, or `CODE_CHANGE_WITH_HPO`
+plan. HPO spaces pass the Phase 3 validators plus parameter/count/project limits,
+and requested trials are clamped to remaining budgets.
+
+Code proposals contain an exact base SHA, declared target files, and unified diff.
+Before a Docker run, LabPilot checks size, headers, approved paths, traversal,
+secret/runtime targets, and disallowed command execution. It applies the diff in a
+disposable managed worktree and compiles changed Python sources. One configurable
+repair attempt is allowed. A final preflight failure becomes a structured failed
+experiment and enters the normal analysis policy without starting HPO or Docker.
+
+The critic receives the already-computed decision and may only explain it. Its
+schema and post-validation reject a changed decision or hypothesis identity. On
+REPLAN, the next hypothesis prompt contains structured prior hypotheses, decisions,
+metrics/failures, and remaining budget. Completed role checkpoints are not repeated
+by ordinary resume. Provider/authentication/token-budget failures are persisted as
+BLOCKED at the retry cursor; invalid final structured output becomes FAILED.
+
 ## Limitations
 
-- Experiment execution, metrics, and inner-loop HPO are real; literature and
-  hypothesis inputs remain explicit deterministic fixtures or supplied patches.
+- Experiment execution, metrics, inner-loop HPO, and opt-in DeepSeek outer-loop
+  proposals are real. Literature inputs remain deterministic fixtures.
 - One local executor per run; no leases, distributed scheduling, or automatic
   reconciliation after a process crash during active Docker execution.
 - Worktrees and containers are cleaned up normally, but cleanup failures can leave
@@ -572,8 +682,8 @@ suggestion sequence without relying on an in-memory sampler RNG.
 - Dockerfiles, images, repositories, and patches are trusted local inputs. Docker
   isolation here is not a complete defense against intentionally hostile code.
 - Schema extensions are backward-compatible; migration tooling remains deferred.
-- No LLM calls, generated patches, real literature APIs, MLflow, web UI,
-  distributed execution, paper writing, or vector database.
+- No real literature APIs, MLflow, backend web API, distributed execution, paper
+  writing, or vector database.
 - The current HPO implementation is sequential and supports final metrics only.
   It has no pruning, executor leases, parallel workers, or active-container recovery.
 
@@ -583,19 +693,19 @@ suggestion sequence without relying on an in-memory sampler RNG.
 | --- | --- |
 | 1 | Typed state, deterministic orchestration, SQLite checkpoint/resume |
 | 2 | Git worktrees, supplied patches, Docker execution, real MNIST metrics |
-| **3 (current)** | Typed, persisted, budgeted Optuna HPO through Docker trials |
-| 4 | LLM hypothesis and code patch generation |
+| 3 | Typed, persisted, budgeted Optuna HPO through Docker trials |
+| **4 (current)** | Structured DeepSeek outer loop and validated patch planning |
 | 5 | arXiv and Semantic Scholar evidence grounding |
 | 6 | Benchmarks and evaluation |
 
-### Exact Phase 4 TODOs (not implemented)
+### Exact Phase 5 TODOs (not implemented)
 
-- [ ] Add a real `LLMClient` behind an injectable interface.
-- [ ] Validate all model output through structured schemas with explicit retry/failure handling.
-- [ ] Inspect repository context within bounded, auditable inputs.
-- [ ] Generate evidence-linked hypotheses and typed `ExperimentPlan` proposals.
-- [ ] Generate and validate candidate code patches before isolated execution.
-- [ ] Preserve the outer-loop patch / inner-loop Optuna boundary.
-- [ ] Account for model tokens, cost, attempts, and failure budgets in `ResearchBudget`.
-- [ ] Persist prompts, model identity, structured responses, and provenance without secrets.
-- [ ] Add deterministic fake-client tests before any opt-in network integration tests.
+- [ ] Add arXiv and Semantic Scholar providers behind typed interfaces.
+- [ ] Persist normalized paper identity, metadata, source URL, and retrieval provenance.
+- [ ] Extract schema-validated claims with exact source spans.
+- [ ] Classify SUPPORT, CONTRADICT, and NEUTRAL evidence relations.
+- [ ] Deduplicate papers and claims across providers and research iterations.
+- [ ] Rank evidence by relevance, quality, recency, and contradiction coverage.
+- [ ] Feed cited evidence packages into hypothesis generation without changing metric authority.
+- [ ] Distinguish repository/history hypotheses from literature-grounded hypotheses in policy and UI.
+- [ ] Add offline provider fixtures and opt-in network integration tests.

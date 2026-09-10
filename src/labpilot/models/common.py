@@ -45,6 +45,28 @@ class HypothesisStatus(StrEnum):
     REPLANNED = "REPLANNED"
 
 
+class EvidenceSource(StrEnum):
+    FIXTURE = "FIXTURE"
+    REPOSITORY_AND_EXPERIMENT_HISTORY = "REPOSITORY_AND_EXPERIMENT_HISTORY"
+    SCIENTIFIC_LITERATURE = "SCIENTIFIC_LITERATURE"
+
+
+class GroundingStatus(StrEnum):
+    LITERATURE_GROUNDED = "LITERATURE_GROUNDED"
+    PARTIALLY_GROUNDED = "PARTIALLY_GROUNDED"
+    REPOSITORY_ONLY = "REPOSITORY_ONLY"
+
+
+class SourceScope(StrEnum):
+    ABSTRACT = "ABSTRACT"
+
+
+class ChangeType(StrEnum):
+    CONFIG_ONLY = "CONFIG_ONLY"
+    CODE_CHANGE = "CODE_CHANGE"
+    CODE_CHANGE_WITH_HPO = "CODE_CHANGE_WITH_HPO"
+
+
 class MetricDirection(StrEnum):
     MAXIMIZE = "MAXIMIZE"
     MINIMIZE = "MINIMIZE"
@@ -55,9 +77,20 @@ class RunStatus(StrEnum):
     RUNNING = "RUNNING"
     PAUSED = "PAUSED"
     COMPLETED = "COMPLETED"
+    BLOCKED = "BLOCKED"
+    FAILED = "FAILED"
 
 
 class Step(StrEnum):
+    INSPECT_REPOSITORY = "inspect_repository"
+    PLAN_LITERATURE_QUERIES = "plan_literature_queries"
+    RETRIEVE_PAPERS = "retrieve_papers"
+    EXTRACT_CLAIMS = "extract_claims"
+    SYNTHESIZE_EVIDENCE = "synthesize_evidence"
+    GENERATE_HYPOTHESES = "generate_hypotheses"
+    PLAN_EXPERIMENT = "plan_experiment"
+    GENERATE_PATCH = "generate_patch"
+    CRITIQUE = "critique"
     LITERATURE = "literature"
     EVIDENCE = "evidence"
     BASELINE = "baseline"

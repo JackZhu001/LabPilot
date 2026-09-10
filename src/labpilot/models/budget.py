@@ -8,6 +8,16 @@ from labpilot.models.common import DomainModel, NonNegative
 
 
 class ResearchBudget(DomainModel):
+    max_literature_queries: NonNegative = 0
+    literature_queries: NonNegative = 0
+    max_papers: NonNegative = 0
+    papers: NonNegative = 0
+    max_claims: NonNegative = 0
+    claims: NonNegative = 0
+    max_llm_calls: NonNegative = 0
+    llm_calls: NonNegative = 0
+    max_llm_tokens: NonNegative = 0
+    llm_tokens: NonNegative = 0
     max_hpo_trials: NonNegative = 0
     hpo_trials: NonNegative = 0
     max_iterations: NonNegative = 3
@@ -21,7 +31,18 @@ class ResearchBudget(DomainModel):
 
     @model_validator(mode="after")
     def validate_usage(self) -> Self:
-        for key in ("iterations", "experiments", "failed_experiments", "replans", "hpo_trials"):
+        for key in (
+            "iterations",
+            "experiments",
+            "failed_experiments",
+            "replans",
+            "hpo_trials",
+            "llm_calls",
+            "llm_tokens",
+            "literature_queries",
+            "papers",
+            "claims",
+        ):
             if getattr(self, key) > getattr(self, f"max_{key}"):
                 raise ValueError(f"{key} usage exceeds limit")
         if self.failed_experiments > self.experiments:
@@ -36,6 +57,13 @@ class ResearchBudget(DomainModel):
 
     def can_run_hpo_trial(self) -> bool:
         return self.hpo_trials < self.max_hpo_trials and self.can_run_experiment()
+
+    def can_call_llm(self, estimated_tokens: int = 1) -> bool:
+        return (
+            estimated_tokens >= 0
+            and self.llm_calls < self.max_llm_calls
+            and self.llm_tokens + estimated_tokens <= self.max_llm_tokens
+        )
 
     def can_continue(self) -> bool:
         """Whether a new iteration may start; an active iteration may still finish."""
@@ -54,6 +82,11 @@ class ResearchBudget(DomainModel):
                 "failed_experiments",
                 "replans",
                 "hpo_trials",
+                "llm_calls",
+                "llm_tokens",
+                "literature_queries",
+                "papers",
+                "claims",
             }:
                 raise ValueError(f"Unknown budget counter: {key}")
             if amount < 0:

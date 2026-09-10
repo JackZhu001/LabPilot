@@ -8,7 +8,15 @@ from uuid import UUID
 from pydantic import AwareDatetime, Field
 
 from labpilot.hpo.search_space import SearchSpace, mnist_search_space
-from labpilot.models.common import DomainModel, MetricDirection, NonNegative, Text, utc_now
+from labpilot.models.common import (
+    ChangeType,
+    DomainModel,
+    MetricDirection,
+    NonNegative,
+    Text,
+    utc_now,
+)
+from labpilot.models.training import TrainingOverrides
 
 
 class TrialStatus(StrEnum):
@@ -35,10 +43,19 @@ class ExperimentPlan(DomainModel):
     id: UUID
     hypothesis_id: UUID
     patch_id: UUID | None = None
-    search_space: SearchSpace
+    rationale: Text = "Predefined Phase 3 inner-loop plan"
+    change_type: ChangeType = ChangeType.CODE_CHANGE_WITH_HPO
+    files_to_inspect: tuple[Text, ...] = ()
+    files_to_modify: tuple[Text, ...] = ()
+    configuration_overrides: TrainingOverrides | None = None
+    search_space: SearchSpace | None = None
     primary_metric: Text
     direction: MetricDirection
     max_trials: int = Field(ge=1)
+    estimated_runtime_seconds: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    falsification_criteria: Text | None = None
+    expected_effect: Text | None = None
+    validation_checks: tuple[Text, ...] = ()
 
 
 class OptimizationStudy(DomainModel):

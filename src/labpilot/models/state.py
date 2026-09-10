@@ -6,8 +6,17 @@ from uuid import UUID, uuid4
 from pydantic import AwareDatetime, Field, model_validator
 
 from labpilot.hpo.models import ExperimentPlan, HPOConfig, OptimizationStudy
+from labpilot.llm.models import (
+    HypothesisBatch,
+    LLMSettings,
+    LLMUsage,
+    PatchProposal,
+    RepositoryInspection,
+    ResearchCritique,
+)
 from labpilot.models.budget import ResearchBudget
 from labpilot.models.common import (
+    ChangeType,
     DomainModel,
     FakeOutcome,
     NonNegative,
@@ -19,7 +28,16 @@ from labpilot.models.common import (
 )
 from labpilot.models.execution import ExecutionConfig
 from labpilot.models.experiments import Baseline, CodePatch, Experiment, Metric, Trial
-from labpilot.models.literature import Claim, Evidence, Hypothesis, Paper
+from labpilot.models.literature import (
+    Claim,
+    Evidence,
+    EvidenceSynthesis,
+    GroundedHypothesisBatch,
+    Hypothesis,
+    LiteratureQueryPlan,
+    LiteratureSettings,
+    Paper,
+)
 
 
 class DecisionRecord(DomainModel):
@@ -58,11 +76,27 @@ class ResearchState(DomainModel):
     next_step: Step = Step.LITERATURE
     revision: NonNegative = 0
     papers: tuple[Paper, ...] = ()
+    literature_settings: LiteratureSettings = Field(default_factory=LiteratureSettings)
+    literature_query_plan: LiteratureQueryPlan | None = None
+    literature_failures: tuple[Text, ...] = ()
+    claim_extraction_index: NonNegative = 0
+    evidence_synthesis: EvidenceSynthesis | None = None
+    grounded_hypothesis_batches: tuple[GroundedHypothesisBatch, ...] = ()
     claims: tuple[Claim, ...] = ()
     evidence: tuple[Evidence, ...] = ()
     hypotheses: tuple[Hypothesis, ...] = ()
     active_hypothesis_id: UUID | None = None
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
+    llm: LLMSettings | None = None
+    repository_inspection: RepositoryInspection | None = None
+    hypothesis_batches: tuple[HypothesisBatch, ...] = ()
+    required_change_type: ChangeType | None = None
+    max_hypothesis_generation_attempts: int = Field(default=1, ge=1, le=2)
+    hypothesis_generation_attempts: NonNegative = 0
+    active_plan_id: UUID | None = None
+    patch_proposals: tuple[PatchProposal, ...] = ()
+    critic_summaries: tuple[ResearchCritique, ...] = ()
+    llm_usage: tuple[LLMUsage, ...] = ()
     hpo: HPOConfig | None = None
     plans: tuple[ExperimentPlan, ...] = ()
     studies: tuple[OptimizationStudy, ...] = ()
@@ -110,7 +144,21 @@ class ResearchState(DomainModel):
         trials = {item.id: item for item in self.trials}
         links_valid = (
             all(item.paper_id in papers for item in self.claims)
-            and all(item.claim_id in claims for item in self.evidence)
+            and all(
+                item.claim_id in claims
+                and (
+                    item.paper_id is None
+                    or (
+                        item.paper_id in papers
+                        and next(
+                            claim for claim in self.claims if claim.id == item.claim_id
+                        ).paper_id
+                        == item.paper_id
+                    )
+                )
+                and (item.target_hypothesis_id is None or item.target_hypothesis_id in hypotheses)
+                for item in self.evidence
+            )
             and all(set(item.evidence_ids) <= evidence for item in self.hypotheses)
             and all(item.hypothesis_id in hypotheses for item in self.patches)
             and all(
@@ -193,6 +241,32 @@ class ResearchState(DomainModel):
         study_ids = set(studies)
         if self.active_study_id is not None and self.active_study_id not in study_ids:
             raise ValueError("Active study is missing")
+        if self.active_plan_id is not None and self.active_plan_id not in plans:
+            raise ValueError("Active plan is missing")
+        if self.repository_inspection is not None:
+            if (
+                self.repository_inspection.base_commit_sha != self.execution.base_commit_sha
+                or self.repository_inspection.repo_path != str(self.execution.baseline_repo_path)
+            ):
+                raise ValueError("Repository inspection does not match execution configuration")
+        if any(item.hypothesis_id not in hypotheses for item in self.patch_proposals):
+            raise ValueError("Patch proposal references an unknown hypothesis")
+        if any(item.hypothesis_id not in hypotheses for item in self.critic_summaries):
+            raise ValueError("Critique references an unknown hypothesis")
+        if self.budget.llm_calls != len(self.llm_usage):
+            raise ValueError("LLM call budget must equal persisted usage records")
+        if self.budget.llm_tokens != sum(item.total_tokens for item in self.llm_usage):
+            raise ValueError("LLM token budget must equal persisted usage records")
+        if self.literature_settings.enabled:
+            if self.budget.papers != len(self.papers) or self.budget.claims != len(self.claims):
+                raise ValueError("Literature budget usage must equal accepted provenance records")
+            query_count = (
+                len(self.literature_query_plan.queries) if self.literature_query_plan else 0
+            )
+            if self.budget.literature_queries != query_count:
+                raise ValueError("Literature query budget must equal the accepted query plan")
+        if self.hypothesis_generation_attempts > self.max_hypothesis_generation_attempts:
+            raise ValueError("Hypothesis generation attempts exceed the configured limit")
         hpo_trials = [trial for trial in self.trials if trial.study_id is not None]
         if self.budget.hpo_trials != len(hpo_trials):
             raise ValueError("HPO budget usage must equal accepted trial count")
@@ -229,10 +303,13 @@ class ResearchState(DomainModel):
             raise ValueError("Failure count and budget usage must agree")
         if self.updated_at < self.created_at:
             raise ValueError("updated_at cannot precede created_at")
-        if (self.status == RunStatus.COMPLETED) != (self.next_step == Step.END):
-            raise ValueError("Completed runs must have the END cursor, and vice versa")
-        if self.status == RunStatus.COMPLETED and self.termination_reason is None:
-            raise ValueError("Completed runs require a termination reason")
+        terminal = self.status in {RunStatus.COMPLETED, RunStatus.FAILED}
+        if terminal != (self.next_step == Step.END):
+            raise ValueError("Terminal runs must have the END cursor, and vice versa")
+        if terminal and self.termination_reason is None:
+            raise ValueError("Terminal runs require a termination reason")
+        if self.status == RunStatus.BLOCKED and self.next_step == Step.END:
+            raise ValueError("Blocked runs must retain their retry cursor")
         if self.decision != (self.decisions[-1].decision if self.decisions else None):
             raise ValueError("Latest decision must agree with decision history")
         return self

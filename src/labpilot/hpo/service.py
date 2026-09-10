@@ -49,22 +49,27 @@ class HPOService:
         if state.hpo is None or state.active_hypothesis_id is None:
             raise ValueError("HPO requires a hypothesis and search configuration")
         identity = uuid5(state.active_hypothesis_id, "study")
-        patch = CodePatch(
-            id=uuid5(identity, "patch"),
-            hypothesis_id=state.active_hypothesis_id,
-            base_commit_sha=state.execution.base_commit_sha,
-            description="Fixed outer-loop patch shared by all study trials",
-            diff=state.execution.patch_diff,
-        )
-        plan = ExperimentPlan(
-            id=uuid5(identity, "plan"),
-            hypothesis_id=state.active_hypothesis_id,
-            patch_id=patch.id,
-            search_space=state.hpo.search_space,
-            primary_metric=state.baseline.metric_name,
-            direction=state.baseline.direction,
-            max_trials=state.hpo.max_trials,
-        )
+        plan = next((item for item in state.plans if item.id == state.active_plan_id), None)
+        patch: CodePatch | None = None
+        if plan is None:
+            patch = CodePatch(
+                id=uuid5(identity, "patch"),
+                hypothesis_id=state.active_hypothesis_id,
+                base_commit_sha=state.execution.base_commit_sha,
+                description="Fixed outer-loop patch shared by all study trials",
+                diff=state.execution.patch_diff,
+            )
+            plan = ExperimentPlan(
+                id=uuid5(identity, "plan"),
+                hypothesis_id=state.active_hypothesis_id,
+                patch_id=patch.id,
+                search_space=state.hpo.search_space,
+                primary_metric=state.baseline.metric_name,
+                direction=state.baseline.direction,
+                max_trials=state.hpo.max_trials,
+            )
+        if plan.search_space is None:
+            raise ValueError("HPO plan requires a typed search space")
         study = OptimizationStudy(
             id=identity,
             research_id=state.research_id,
@@ -86,9 +91,10 @@ class HPOService:
         with PersistentStudy(study):
             pass
         return state.evolve(
-            plans=(*state.plans, plan),
+            plans=state.plans if plan in state.plans else (*state.plans, plan),
             studies=(*state.studies, study),
-            patches=(*state.patches, patch),
+            patches=(*state.patches, patch) if patch else state.patches,
+            active_plan_id=plan.id,
             active_study_id=identity,
             next_step=Step.HPO_SUGGEST,
         )
@@ -103,6 +109,10 @@ class HPOService:
         trial_id = uuid5(study.id, f"trial:{number}")
         experiment_id = uuid5(trial_id, "experiment")
         plan = next(plan for plan in state.plans if plan.id == study.plan_id)
+        patch = next(
+            (item for item in state.patches if item.id == plan.patch_id),
+            None,
+        )
         experiment = Experiment(
             id=experiment_id,
             research_id=state.research_id,
@@ -110,6 +120,9 @@ class HPOService:
             patch_id=plan.patch_id,
             sequence=state.budget.experiments + 1,
             config=ExperimentConfig(
+                overrides=plan.configuration_overrides,
+                apply_patch=plan.patch_id is not None,
+                patch_diff=patch.diff if patch is not None else "",
                 seed=state.simulation.seed,
                 metric_name=study.primary_metric,
                 direction=study.direction,

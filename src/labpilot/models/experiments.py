@@ -40,6 +40,8 @@ class Baseline(DomainModel):
 
 class ExperimentConfig(DomainModel):
     overrides: TrainingOverrides | None = None
+    apply_patch: bool = True
+    patch_diff: RawText = ""
     direction: MetricDirection = MetricDirection.MAXIMIZE
     seed: NonNegative = 42
     metric_name: Text = "validation_accuracy"

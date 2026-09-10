@@ -7,6 +7,13 @@ from uuid import UUID
 from langgraph.graph import END, START, StateGraph
 
 from labpilot.hpo.reporting import export_studies
+from labpilot.llm.errors import (
+    LLMAuthenticationError,
+    LLMBudgetError,
+    LLMConfigurationError,
+    LLMError,
+    LLMTransientError,
+)
 from labpilot.models.common import RunStatus, Step
 from labpilot.models.state import ResearchState
 from labpilot.persistence.repository import ResearchRepository
@@ -25,7 +32,12 @@ class GraphState(TypedDict):
 def route_next(state: GraphState) -> str:
     """Route from the durable cursor; paused/completed runs end this invocation."""
     research = state["research"]
-    if research.status in {RunStatus.PAUSED, RunStatus.COMPLETED}:
+    if research.status in {
+        RunStatus.PAUSED,
+        RunStatus.COMPLETED,
+        RunStatus.BLOCKED,
+        RunStatus.FAILED,
+    }:
         return END
     return research.next_step.value
 
@@ -46,18 +58,53 @@ def execute(
     if stop_after is not None and stop_after < 1:
         raise ValueError("stop_after must be positive")
     research = repository.load(research_id)
-    if research.status == RunStatus.COMPLETED:
+    if research.status in {RunStatus.COMPLETED, RunStatus.FAILED}:
         return research
-    research = research.evolve(status=RunStatus.RUNNING)
-    workflow = ResearchWorkflow(services or services_for(research))
+    research = research.evolve(status=RunStatus.RUNNING, termination_reason=None)
+    try:
+        resolved_services = services or services_for(research)
+    except LLMError as exc:
+        return repository.save(
+            research.evolve(status=RunStatus.BLOCKED, termination_reason=str(exc))
+        )
+    workflow = ResearchWorkflow(resolved_services)
 
     graph = StateGraph(GraphState)
 
     def add_node(step: Step) -> None:
         def run(state: GraphState) -> GraphState:
-            updated = workflow.advance(state["research"], step)
+            try:
+                updated = workflow.advance(state["research"], step)
+            except LLMError as exc:
+                current = state["research"]
+                if exc.usages:
+                    calls = len(exc.usages)
+                    tokens = sum(item.total_tokens for item in exc.usages)
+                    current = current.evolve(
+                        llm_usage=(*current.llm_usage, *exc.usages),
+                        budget=current.budget.consume(llm_calls=calls, llm_tokens=tokens),
+                    )
+                retryable = isinstance(
+                    exc,
+                    (
+                        LLMAuthenticationError,
+                        LLMBudgetError,
+                        LLMConfigurationError,
+                        LLMTransientError,
+                    ),
+                )
+                updated = current.evolve(
+                    status=RunStatus.BLOCKED if retryable else RunStatus.FAILED,
+                    next_step=current.next_step if retryable else Step.END,
+                    termination_reason=str(exc),
+                )
             count = state["completed_steps"] + 1
-            if stop_after is not None and count >= stop_after and updated.next_step != Step.END:
+            if (
+                stop_after is not None
+                and count >= stop_after
+                and updated.next_step != Step.END
+                and updated.status == RunStatus.RUNNING
+            ):
                 updated = updated.evolve(status=RunStatus.PAUSED)
             updated = repository.save(updated)
             if updated.studies:
@@ -88,6 +135,8 @@ def execute(
             "recursion_limit": 4 * research.budget.max_iterations
             + 3 * research.budget.max_experiments
             + 3 * research.budget.max_hpo_trials
+            + research.budget.max_papers
+            + research.budget.max_literature_queries
             + 10
         },
     )

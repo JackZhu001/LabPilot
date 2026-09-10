@@ -32,6 +32,25 @@ def test_worktree_patch_and_baseline_integrity(baseline_repo: Path, tmp_path: Pa
     assert manager.validate_clean_baseline() == sha
 
 
+def test_worktree_recounts_incorrect_hunk_lengths(baseline_repo: Path, tmp_path: Path) -> None:
+    manager = WorktreeManager(baseline_repo, tmp_path / "worktrees")
+    sha = manager.validate_clean_baseline()
+    worktree = manager.create_worktree(uuid4(), sha)
+    patch = "\n".join(
+        (
+            "--- a/train.py",
+            "+++ b/train.py",
+            "@@ -1,2 +1,3 @@",
+            " print('fixture')",
+            "+print('recounted')",
+            "",
+        )
+    )
+    manager.apply_patch(worktree, patch, sha)
+    assert (worktree / "train.py").read_text() == "print('fixture')\nprint('recounted')\n"
+    manager.cleanup_worktree(worktree)
+
+
 def test_patch_conflict_and_base_mismatch(baseline_repo: Path, tmp_path: Path) -> None:
     manager = WorktreeManager(baseline_repo, tmp_path / "worktrees")
     sha = manager.get_head_sha()
