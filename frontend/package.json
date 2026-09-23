@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "smoke": "vite build --ssr scripts/ssr-smoke.tsx --outDir .smoke && node .smoke/ssr-smoke.js && rm -rf .smoke",
     "preview": "vite preview"
   },
   "dependencies": {

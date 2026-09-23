@@ -20,8 +20,7 @@ export function formatDelta(value: number | null | undefined, digits = 4): strin
 export function deltaAsPercentagePoints(value: number): string {
   const pp = value * 100;
   const sign = pp > 0 ? "+" : "";
-  const digits = Math.abs(pp) < 1 ? 2 : 2;
-  return `${sign}${pp.toFixed(digits)} percentage points`;
+  return `${sign}${pp.toFixed(2)} percentage points`;
 }
 
 export function formatRuntime(seconds: number | null | undefined): string {

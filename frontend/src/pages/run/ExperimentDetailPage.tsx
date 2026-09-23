@@ -45,10 +45,7 @@ function ArtifactRow({ name, path }: { name: string; path: string }) {
 
 export default function ExperimentDetailPage() {
   const { researchId = "", experimentId = "" } = useParams();
-  const { data, loading, error } = useRequest(
-    () => getExperiment(experimentId),
-    [experimentId],
-  );
+  const { data, loading, error } = useRequest(() => getExperiment(experimentId), experimentId);
 
   if (loading) {
     return (

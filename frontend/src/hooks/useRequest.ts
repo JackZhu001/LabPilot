@@ -7,12 +7,16 @@ import { useEffect, useRef, useState } from "react";
  */
 export function useRequest<T>(fetcher: () => Promise<T>, key: string) {
   const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
   const [result, setResult] = useState<{
     key: string;
     data: T | null;
     error: Error | null;
   } | null>(null);
+
+  // Keep the latest fetcher without re-running the request on every render.
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  });
 
   useEffect(() => {
     let alive = true;
