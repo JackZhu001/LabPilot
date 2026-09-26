@@ -103,11 +103,18 @@ def configure_docker(
     timeout_seconds: float = 180,
     training_command: tuple[str, ...] = ("python", "train.py"),
     dataset: DatasetMetadata | None = None,
+    use_predefined_patch: bool = True,
 ) -> ExecutionConfig:
     repo, runtime_root = repo.resolve(), runtime_root.resolve()
     manager = WorktreeManager(repo, runtime_root / "worktrees")
     sha = manager.validate_clean_baseline()
-    diff = patch.read_text() if patch else predefined_dropout_patch(repo)
+    diff = (
+        patch.read_text()
+        if patch
+        else predefined_dropout_patch(repo)
+        if use_predefined_patch
+        else ""
+    )
     dataset_metadata = dataset or (
         DatasetMetadata.model_validate_json((repo / "dataset.json").read_text())
         if (repo / "dataset.json").is_file()

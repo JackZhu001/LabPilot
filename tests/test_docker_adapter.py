@@ -28,11 +28,16 @@ def test_container_limits_exit_and_timeout(
     monkeypatch.setattr(client, "_capture", capture)
     monkeypatch.setattr(subprocess, "run", run)
     artifacts = create_artifacts(tmp_path, uuid4(), uuid4())
-    result = client.run(ExecutionConfig(), artifacts, uuid4(), "sha256:image", 42)
+    result = client.run(
+        ExecutionConfig(), artifacts, uuid4(), "sha256:image", 42,
+        metric_name="validation_loss", direction="MINIMIZE",
+    )
     create = calls[0]
     assert create[create.index("--network") + 1] == "none"
     assert "--read-only" in create and "--cpus" in create and "--memory" in create
     assert not any("docker.sock" in arg for arg in create)
+    assert "LABPILOT_METRIC_NAME=validation_loss" in create
+    assert "LABPILOT_METRIC_DIRECTION=minimize" in create
     assert result.timed_out == timeout
     assert result.exit_code == (None if timeout else 7)
     assert calls[-1] == ("rm", "--force", "container-id")

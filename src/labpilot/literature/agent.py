@@ -4,7 +4,7 @@ from uuid import UUID, uuid5
 
 from labpilot.agent.service import AgentLoopService, compact_json
 from labpilot.literature.service import LiteratureRetrievalService
-from labpilot.models.common import Step
+from labpilot.models.common import SourceScope, Step
 from labpilot.models.literature import (
     Claim,
     ClaimBatch,
@@ -111,13 +111,14 @@ class LiteratureAgentService:
             self.services.literature_providers,
             state.execution.runtime_root / "literature-cache",
         )
-        papers, failures = service.retrieve(
+        retrieved, failures = service.retrieve(
             state.research_id, state.literature_query_plan, max(0, remaining)
         )
+        papers = (*state.papers, *retrieved)
         return state.evolve(
             papers=papers,
             literature_failures=failures,
-            budget=state.budget.consume(papers=len(papers)),
+            budget=state.budget.consume(papers=len(retrieved)),
             next_step=Step.EXTRACT_CLAIMS,
         )
 
@@ -126,13 +127,16 @@ class LiteratureAgentService:
         if index >= len(state.papers) or state.budget.claims >= state.budget.max_claims:
             return state.evolve(next_step=Step.SYNTHESIZE_EVIDENCE)
         paper = state.papers[index]
-        if not paper.abstract:
+        source_text = paper.full_text_excerpt or paper.abstract
+        if not source_text:
             return state.evolve(claim_extraction_index=index + 1, next_step=Step.EXTRACT_CLAIMS)
         remaining = state.budget.max_claims - state.budget.claims
         limit = min(state.literature_settings.max_claims_per_paper, remaining)
         prompt = (
             f"Research goal: {state.research_goal}\nMaximum relevant claims: {limit}\n"
-            f"Paper metadata and complete available abstract: {compact_json(paper)}"
+            "Paper metadata: "
+            f"{compact_json(paper.model_dump(mode='json', exclude={'full_text_excerpt'}))}\n"
+            f"Available source text (choose exact source spans and label its scope): {source_text}"
         )
         result, state = self.agent._invoke(
             state,
@@ -142,9 +146,14 @@ class LiteratureAgentService:
             response_model=ClaimBatch,
         )
         claims: list[Claim] = []
-        normalized_abstract = " ".join(paper.abstract.split()).casefold()
+        expected_scope = (
+            SourceScope.PAPER_EXCERPT if paper.full_text_excerpt else SourceScope.ABSTRACT
+        )
+        normalized_source = " ".join(source_text.split()).casefold()
         for offset, draft in enumerate(result.output.claims[:limit]):
-            if " ".join(draft.source_span.split()).casefold() not in normalized_abstract:
+            if draft.source_scope != expected_scope or (
+                " ".join(draft.source_span.split()).casefold() not in normalized_source
+            ):
                 continue
             claims.append(
                 Claim(

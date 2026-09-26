@@ -16,23 +16,30 @@ Literature → Evidence → Hypothesis → Experiment → Metric → Keep / Reje
 preserves the fast offline fixtures. Agent mode uses a provider-independent typed
 interface with DeepSeek to inspect a bounded repository context, propose and plan a
 hypothesis, generate a validated patch when required, and explain the measured
-result. An optional bounded literature path plans scholarly queries, retrieves and
+result. The bilingual workbench offers a reviewable custom-research flow for uploaded
+papers, local baselines, target metrics, reproducibility seeds, and research constraints.
+An optional bounded literature path plans scholarly queries, retrieves and
 deduplicates arXiv/Semantic Scholar metadata, verifies claims against exact abstract
 spans, synthesizes explicit evidence relations, and keeps provenance through the
 selected hypothesis. Git, Docker, Optuna, and DecisionEngine retain execution authority.
 
 ## Explore the workbench
 
-![LabPilot research workbench in English](docs/images/dashboard-en.png)
+The bilingual workbench connects to saved SQLite runs so you can inspect experiments,
+trace evidence, compare conditions, and export reports. The CSS 3D scene is decorative;
+experiment metrics come from saved records.
 
-A local research workbench connected to saved SQLite runs: inspect experiments,
-trace evidence, compare recorded conditions, and export reproducible reports.
-Switch between English and Chinese, light and dark themes, and enable or pause
-motion. The CSS 3D scene is decorative; experiment metrics come from saved records.
+| English dashboard | 中文工作台 |
+| --- | --- |
+| ![LabPilot research dashboard](docs/images/dashboard-en.png) | ![LabPilot 中文研究工作台](docs/images/dashboard-zh.png) |
 
-| English workbench | 中文工作台 | Research report |
-| --- | --- | --- |
-| ![LabPilot research dashboard](docs/images/dashboard-en.png) | ![LabPilot 中文工作台](docs/images/dashboard-zh.png) | ![Measured research report](docs/images/report-en.png) |
+| Custom research settings | Plan preview in Chinese |
+| --- | --- |
+| ![Research constraints, seed and literature budget](docs/images/new-research-advanced-zh.png) | ![自定义研究计划预览](docs/images/research-plan-preview-zh.png) |
+
+| Plan preview in English | Saved research report |
+| --- | --- |
+| ![Reviewable English research plan](docs/images/research-plan-preview-en.png) | ![研究报告与实验指标](docs/images/report-detail-zh.png) |
 
 Screenshots show local demonstration runs, including simulated and Docker
 experiments. The MNIST result is illustrative, not a general benchmark claim.

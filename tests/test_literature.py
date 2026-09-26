@@ -279,6 +279,45 @@ def test_cache_avoids_duplicate_provider_calls_and_failure_degrades(tmp_path: Pa
     assert failures and failures[0].startswith("semantic_scholar:")
 
 
+def test_retrieval_preserves_uploaded_papers_without_double_charging_budget(
+    tmp_path: Path,
+) -> None:
+    query = LiteratureQuery(
+        id=uuid4(), query="mixup", motivation="Find related work", target_concepts=("mixup",)
+    )
+    uploaded = Paper(
+        title="My uploaded paper",
+        full_text_excerpt="An uploaded source paper with enough content to analyze.",
+        source_provider="user_upload",
+    )
+    state = ResearchState(
+        research_goal="Improve accuracy",
+        next_step=Step.RETRIEVE_PAPERS,
+        papers=(uploaded,),
+        literature_query_plan=LiteratureQueryPlan(queries=(query,)),
+        execution=ExecutionConfig(runtime_root=tmp_path),
+        llm=LLMSettings(),
+        literature_settings=LiteratureSettings(enabled=True),
+        budget=ResearchBudget(
+            max_literature_queries=1,
+            literature_queries=1,
+            max_papers=2,
+            papers=1,
+        ),
+    )
+    provider = CountingProvider((candidate(title="Related paper"),))
+    services = replace(
+        fake_services(state.simulation),
+        literature_providers=(provider,),
+        llm=FakeLLMClient(()),
+    )
+
+    result = LiteratureAgentService(services).retrieve_papers(state)
+
+    assert [paper.title for paper in result.papers] == ["My uploaded paper", "Related paper"]
+    assert result.budget.papers == len(result.papers) == 2
+
+
 def extraction_state(tmp_path: Path, response: ClaimBatch) -> ResearchState:
     paper = Paper(
         title="Regularization study",
@@ -326,6 +365,33 @@ def test_claim_source_provenance_and_unsupported_span_rejection(tmp_path: Path) 
     assert result.claims[0].paper_id == state.papers[0].id
     assert result.claims[0].source_span == supported.source_span
     assert result.budget.claims == 1
+
+
+def test_uploaded_paper_claims_are_scoped_to_the_extracted_excerpt(tmp_path: Path) -> None:
+    excerpt = "The paper reports that mixup improved validation accuracy by two points."
+    paper = Paper(
+        title="Uploaded study",
+        full_text_excerpt=excerpt,
+        source_provider="user_upload",
+    )
+    claim = ClaimDraft(
+        statement="Mixup improved validation accuracy",
+        confidence=0.8,
+        source_span="mixup improved validation accuracy by two points",
+        source_scope=SourceScope.PAPER_EXCERPT,
+    )
+    state = extraction_state(tmp_path, ClaimBatch(claims=(claim,))).model_copy(
+        update={"papers": (paper,)}
+    )
+    service = LiteratureAgentService(
+        replace(fake_services(state.simulation), llm=FakeLLMClient((ClaimBatch(claims=(claim,)),)))
+    )
+
+    result = service.extract_claims(state)
+
+    assert len(result.claims) == 1
+    assert result.claims[0].source_scope == SourceScope.PAPER_EXCERPT
+    assert result.claims[0].source_span == claim.source_span
 
 
 @pytest.mark.parametrize("relation", tuple(EvidenceRelation))

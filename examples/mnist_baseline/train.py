@@ -51,13 +51,14 @@ def main() -> None:
             raise ValueError(f"{field} must be a positive integer")
     if not 0 <= config["dropout"] < 1 or not 0 < config["learning_rate"] < 1:
         raise ValueError("Invalid dropout or learning rate")
-    if (
-        config["primary_metric"] != dataset_metadata["metric_name"]
-        or config["direction"] != dataset_metadata["direction"]
-        or config["primary_metric"] != "validation_accuracy"
-        or config["direction"] != "maximize"
-    ):
-        raise ValueError("This example maximizes validation_accuracy")
+    primary_metric = os.environ.get("LABPILOT_METRIC_NAME", config["primary_metric"])
+    direction = os.environ.get("LABPILOT_METRIC_DIRECTION", config["direction"])
+    supported_objectives = {
+        "validation_accuracy": "maximize",
+        "validation_loss": "minimize",
+    }
+    if supported_objectives.get(primary_metric) != direction:
+        raise ValueError("Supported objectives are accuracy/maximize and loss/minimize")
     random.seed(seed)
     torch.manual_seed(seed)
     torch.use_deterministic_algorithms(True)

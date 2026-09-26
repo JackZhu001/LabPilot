@@ -60,6 +60,14 @@ export default function RunEvidencePage() {
                               {t("confidence")}{" "}{claim.confidence}
                             </span>
                           </p>
+                          {claim.source_span && (
+                            <blockquote className="mt-2 border-l-2 border-accent/50 pl-3 text-xs leading-relaxed text-muted">
+                              <span className="mb-1 block font-mono text-[10px] uppercase tracking-wide text-faint">
+                                {claim.source_scope === "PAPER_EXCERPT" ? t("Uploaded paper excerpt") : t("Paper abstract excerpt")}
+                              </span>
+                              “{claim.source_span}”
+                            </blockquote>
+                          )}
                           <ul className="mt-2 space-y-1.5">
                             {run.evidence
                               .filter((ev) => ev.claim_id === claim.id)

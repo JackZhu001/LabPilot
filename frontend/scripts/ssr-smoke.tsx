@@ -38,6 +38,7 @@ function runRoutes(run: ResearchRun) {
 }
 
 const paths = [
+  "/new",
   "/dashboard",
   "/runs",
   "/runs/7ba5ca38-1d49-4901-bc98-a108a11942ea",

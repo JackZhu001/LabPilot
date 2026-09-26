@@ -104,7 +104,13 @@ class DockerExperimentRunner:
             image_id = self.docker.prepare_image(config, artifacts)
             docker_metadata = docker_metadata.model_copy(update={"image_id": image_id})
             execution = self.docker.run(
-                config, artifacts, experiment.id, image_id, experiment.config.seed
+                config,
+                artifacts,
+                experiment.id,
+                image_id,
+                experiment.config.seed,
+                experiment.config.metric_name,
+                experiment.config.direction.value,
             )
             docker_metadata = docker_metadata.model_copy(
                 update={"container_id": execution.container_id}

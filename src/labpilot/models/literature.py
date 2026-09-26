@@ -71,6 +71,7 @@ class Paper(DomainModel):
     title: Text
     authors: tuple[Text, ...] = ()
     abstract: Text | None = None
+    full_text_excerpt: Annotated[str, Field(min_length=1, max_length=12_000)] | None = None
     url: HttpUrl | None = None
     published_at: date | None = None
     doi: Text | None = None
@@ -88,7 +89,7 @@ class ClaimDraft(DomainModel):
     claim_type: Text | None = None
     confidence: Confidence
     source_span: Text
-    source_scope: Literal[SourceScope.ABSTRACT] = SourceScope.ABSTRACT
+    source_scope: Literal[SourceScope.ABSTRACT, SourceScope.PAPER_EXCERPT] = SourceScope.ABSTRACT
 
 
 class ClaimBatch(DomainModel):

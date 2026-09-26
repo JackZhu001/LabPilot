@@ -198,6 +198,7 @@ export interface Paper {
   published_at: string | null;
   source_provider: string;
   abstract?: string | null;
+  full_text_excerpt?: string | null;
   doi?: string | null;
   arxiv_id?: string | null;
   venue?: string | null;
@@ -212,7 +213,7 @@ export interface Claim {
   confidence: number;
   claim_type?: string | null;
   source_span?: string | null;
-  source_scope?: "ABSTRACT" | null;
+  source_scope?: "ABSTRACT" | "PAPER_EXCERPT" | null;
 }
 
 export interface Evidence {

@@ -59,6 +59,7 @@ class GroundingStatus(StrEnum):
 
 class SourceScope(StrEnum):
     ABSTRACT = "ABSTRACT"
+    PAPER_EXCERPT = "PAPER_EXCERPT"
 
 
 class ChangeType(StrEnum):

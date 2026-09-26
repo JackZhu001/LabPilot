@@ -27,6 +27,7 @@ export default function DashboardPage() {
           <h1 className="hero-title">{t("Ideas into")}<br /><span>{t("evidence.")}</span></h1>
           <p className="hero-copy">{t("Follow the questions, inspect the experiments, and understand what your research agent learned.")}</p>
           <div className="mt-7 flex flex-wrap gap-3">
+            <Link className="primary-button" to="/new">{t("New research")}<FlaskConical size={15} /></Link>
             <Link className="primary-button" to="/runs">{t("Explore research")}<ArrowUpRight size={16} /></Link>
             <Link className="secondary-button" to="/reports">{t("View reports")}<FileText size={15} /></Link>
           </div>

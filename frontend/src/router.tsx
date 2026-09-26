@@ -17,6 +17,7 @@ import ReportsPage from "@/pages/ReportsPage";
 import SystemPage from "@/pages/SystemPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFoundPage from "@/pages/NotFoundPage";
+import NewResearchPage from "@/pages/NewResearchPage";
 
 export const routes: RouteObject[] = [
   {
@@ -25,6 +26,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: "dashboard", element: <DashboardPage /> },
+      { path: "new", element: <NewResearchPage /> },
       { path: "runs", element: <RunsPage /> },
       {
         path: "runs/:researchId",

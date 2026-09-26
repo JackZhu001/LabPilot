@@ -30,7 +30,10 @@ class FixtureDocker(DockerClient):
         experiment_id: UUID,
         image_id: str,
         seed: int,
+        metric_name: str = "validation_accuracy",
+        direction: str = "MAXIMIZE",
     ) -> ContainerResult:
+        del metric_name, direction
         self.calls += 1
         if self.outcome == "missing":
             pass

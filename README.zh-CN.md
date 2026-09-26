@@ -4,11 +4,19 @@
 
 [快速开始](README.md#setup) · [自定义研究流程](README.md#custom-research-workflow) · [Phase 9 报告](docs/phase9-report.md)
 
-从文献证据到可测量的实验结果：LabPilot 将假设、代码变更、隔离执行、指标与决策连接到同一份可恢复的研究状态。
+从文献证据到可测量的实验结果：LabPilot 将假设、代码变更、隔离执行、指标与决策连接到同一份可恢复的研究状态。工作台支持先预览再启动的自定义研究流程，可指定论文、baseline、目标指标、随机种子、文献预算和研究约束。
 
-| 中文工作台 | English workbench | 研究报告 |
-| --- | --- | --- |
-| ![LabPilot 中文工作台](docs/images/dashboard-zh.png) | ![LabPilot research dashboard](docs/images/dashboard-en.png) | ![研究报告](docs/images/report-en.png) |
+| 中文工作台 | English workbench |
+| --- | --- |
+| ![LabPilot 中文研究工作台](docs/images/dashboard-zh.png) | ![LabPilot research dashboard](docs/images/dashboard-en.png) |
+
+| 自定义研究设置 | 中文计划预览 |
+| --- | --- |
+| ![研究约束、随机种子与文献预算](docs/images/new-research-advanced-zh.png) | ![自定义研究计划预览](docs/images/research-plan-preview-zh.png) |
+
+| English plan preview | 研究报告 |
+| --- | --- |
+| ![Reviewable English research plan](docs/images/research-plan-preview-en.png) | ![研究报告与实验指标](docs/images/report-detail-zh.png) |
 
 ## 可以做什么
 

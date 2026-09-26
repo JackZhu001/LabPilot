@@ -51,6 +51,7 @@ function BrandMark({ collapsed }: { collapsed: boolean }) {
 }
 
 const NAV = [
+  { to: "/new", label: "New research", icon: FlaskConical },
   { to: "/dashboard", label: "Dashboard", icon: Gauge },
   { to: "/runs", label: "Research Runs", icon: FlaskConical },
   { to: "/experiments", label: "Experiments", icon: Microscope },

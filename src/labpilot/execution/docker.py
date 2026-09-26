@@ -66,6 +66,8 @@ class DockerClient:
         experiment_id: UUID,
         image_id: str,
         seed: int,
+        metric_name: str = "validation_accuracy",
+        direction: str = "MAXIMIZE",
     ) -> ContainerResult:
         name = f"labpilot-{experiment_id}"
         command = config.training_command
@@ -103,6 +105,10 @@ class DockerClient:
             "PYTHONDONTWRITEBYTECODE=1",
             "--env",
             f"LABPILOT_SEED={seed}",
+            "--env",
+            f"LABPILOT_METRIC_NAME={metric_name}",
+            "--env",
+            f"LABPILOT_METRIC_DIRECTION={direction.lower()}",
             "--env",
             "OMP_NUM_THREADS=2",
             "--entrypoint",

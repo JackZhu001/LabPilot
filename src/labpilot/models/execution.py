@@ -37,8 +37,8 @@ class DatasetMetadata(DomainModel):
     name: Text
     version: Text
     split_policy: Text
-    metric_name: Literal["validation_accuracy"] = "validation_accuracy"
-    direction: Literal["maximize"] = "maximize"
+    metric_name: Text = "validation_accuracy"
+    direction: Literal["maximize", "minimize"] = "maximize"
 
     @model_validator(mode="after")
     def validate_profile_name(self) -> Self:

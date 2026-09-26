@@ -1,18 +1,29 @@
-"""Read-only HTTP API for the frontend, backed by existing SQLite snapshots."""
+"""Local HTTP API for persisted research runs and their creation."""
 
 from __future__ import annotations
 
+import base64
 import json
 import shutil
+import subprocess
+import tempfile
+import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from labpilot.models.experiments import Experiment
-from labpilot.models.state import ResearchState
+from labpilot.agent.repository import RepositoryInspector
+from labpilot.execution.git import GitError, WorktreeManager
+from labpilot.graph.workflow import execute
+from labpilot.llm.models import LLMSettings
+from labpilot.models.budget import ResearchBudget
+from labpilot.models.common import ChangeType, MetricDirection, RunStatus, Step
+from labpilot.models.experiments import Baseline, Experiment
+from labpilot.models.literature import LiteratureSettings, Paper
+from labpilot.models.state import ResearchState, SimulationConfig
 from labpilot.persistence.repository import RunNotFoundError, SQLiteResearchRepository
 from labpilot.reporting import (
     benchmark,
@@ -22,6 +33,7 @@ from labpilot.reporting import (
     report_markdown,
     research_report,
 )
+from labpilot.services.real import configure_docker, prepare_example
 
 
 def _experiment(state: ResearchState, item: Experiment) -> dict[str, Any]:
@@ -94,6 +106,139 @@ def _study(item: Any) -> dict[str, Any]:
     }
 
 
+def uploaded_paper(name: str, encoded: str) -> Paper:
+    filename = Path(name).name
+    suffix = Path(filename).suffix.lower()
+    if suffix not in {".pdf", ".txt", ".md"}:
+        raise ValueError("Upload a PDF, Markdown, or text paper")
+    raw = base64.b64decode(encoded, validate=True)
+    if not raw or len(raw) > 5 * 1024 * 1024:
+        raise ValueError("Paper must be between 1 byte and 5 MB")
+    if suffix == ".pdf":
+        result = subprocess.run(
+            ["pdftotext", "-layout", "-", "-"],
+            input=raw,
+            capture_output=True,
+            timeout=20,
+            check=False,
+        )
+        if result.returncode:
+            raise ValueError("Could not read PDF; install Poppler's pdftotext")
+        text = result.stdout.decode("utf-8", errors="replace")
+    else:
+        text = raw.decode("utf-8-sig")
+    excerpt = " ".join(text.split())[:12_000]
+    if len(excerpt) < 40:
+        raise ValueError("Uploaded paper contains too little readable text")
+    return Paper(
+        title=Path(filename).stem,
+        full_text_excerpt=excerpt,
+        source_provider="user_upload",
+    )
+
+
+def research_preview(payload: dict[str, Any]) -> dict[str, Any]:
+    goal = str(payload.get("goal", "")).strip()
+    if not goal or len(goal) > 1000:
+        raise ValueError("Research topic must contain 1–1000 characters")
+    metric_name = str(payload.get("metric_name", "validation_accuracy")).strip()
+    if not metric_name or len(metric_name) > 80:
+        raise ValueError("Metric name must contain 1–80 characters")
+    direction = MetricDirection(payload.get("direction", MetricDirection.MAXIMIZE.value))
+    seed = payload.get("seed", 42)
+    if isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed <= 2**32 - 1:
+        raise ValueError("Random seed must be an integer from 0 to 4294967295")
+    constraints = str(payload.get("constraints", "")).strip()
+    if len(constraints) > 3000:
+        raise ValueError("Additional research instructions must be 3000 characters or fewer")
+    max_queries = payload.get("max_literature_queries", 2)
+    if (
+        isinstance(max_queries, bool)
+        or not isinstance(max_queries, int)
+        or not 1 <= max_queries <= 3
+    ):
+        raise ValueError("Literature query count must be between one and three")
+    max_papers = payload.get("max_retrieved_papers", 6)
+    if isinstance(max_papers, bool) or not isinstance(max_papers, int) or not 1 <= max_papers <= 10:
+        raise ValueError("Retrieved paper limit must be between one and ten")
+    iterations = payload.get("max_iterations", 3)
+    if isinstance(iterations, bool) or not isinstance(iterations, int) or not 1 <= iterations <= 3:
+        raise ValueError("Research depth must be between one and three iterations")
+    change_type = payload.get("change_type")
+    if change_type not in (
+        None,
+        ChangeType.CONFIG_ONLY.value,
+        ChangeType.CODE_CHANGE.value,
+    ):
+        raise ValueError("Change scope must be automatic, configuration, or code")
+    papers = payload.get("papers", [])
+    if not isinstance(papers, list) or len(papers) > 5:
+        raise ValueError("Upload at most five papers")
+    paper_names = [Path(str(item)).name for item in papers]
+
+    project_root = Path(__file__).resolve().parents[2]
+    repo_value = str(payload.get("baseline_path", "")).strip()
+    if not repo_value and (metric_name, direction.value) not in {
+        ("validation_accuracy", "MAXIMIZE"),
+        ("validation_loss", "MINIMIZE"),
+    }:
+        raise ValueError(
+            "The included MNIST baseline supports validation_accuracy (maximize) "
+            "or validation_loss (minimize)"
+        )
+    if repo_value:
+        repo = Path(repo_value).expanduser().resolve()
+        manager = WorktreeManager(repo, project_root / ".labpilot" / "worktrees")
+        sha = manager.validate_clean_baseline()
+        context = RepositoryInspector().inspect(repo, sha)
+        baseline_name = repo.name
+    else:
+        with tempfile.TemporaryDirectory(prefix="labpilot-preview-") as temporary:
+            repo = prepare_example(
+                project_root / "examples" / "mnist_baseline", Path(temporary) / "baseline"
+            )
+            sha = WorktreeManager(repo, Path(temporary) / "worktrees").validate_clean_baseline()
+            context = RepositoryInspector().inspect(repo, sha)
+        baseline_name = "MNIST baseline"
+
+    files = context.file_tree
+    warnings = []
+    if "Dockerfile" not in files:
+        warnings.append("Dockerfile is missing; container execution may not work.")
+    if not any(Path(name).name == "train.py" for name in files):
+        warnings.append("No train.py entry point was found; verify the repository runner contract.")
+    if not any(Path(name).name == "dataset.json" for name in files):
+        warnings.append(
+            "No dataset.json was found; the baseline must handle its data setup itself."
+        )
+    if repo_value and metric_name not in {"validation_accuracy", "validation_loss"}:
+        warnings.append(
+            "The custom runner must write this metric to outputs/metrics.json."
+        )
+    return {
+        "goal": goal,
+        "constraints": constraints,
+        "baseline": {
+            "name": baseline_name,
+            "commit_sha": sha,
+            "file_count": len(files),
+            "important_files": [item.path for item in context.important_files],
+        },
+        "objective": {"metric_name": metric_name, "direction": direction.value},
+        "papers": paper_names,
+        "literature": {
+            "providers": ["arxiv", "semantic_scholar"],
+            "max_queries": max_queries,
+            "max_papers": max_papers,
+        },
+        "seed": seed,
+        "max_iterations": iterations,
+        "max_experiments": iterations + 1,
+        "change_type": change_type,
+        "warnings": warnings,
+    }
+
+
 def _run(state: ResearchState) -> dict[str, Any]:
     experiments = [_experiment(state, item) for item in state.experiments]
     trials = [_trial(item) for item in state.trials]
@@ -133,7 +278,9 @@ def _run(state: ResearchState) -> dict[str, Any]:
     }
 
 
-def handler_for(repository: SQLiteResearchRepository) -> type[BaseHTTPRequestHandler]:
+def handler_for(
+    repository: SQLiteResearchRepository, database_path: Path | None = None
+) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, format: str, *args: object) -> None:
             return
@@ -150,9 +297,207 @@ def handler_for(repository: SQLiteResearchRepository) -> type[BaseHTTPRequestHan
         def do_OPTIONS(self) -> None:
             self.send_response(HTTPStatus.NO_CONTENT)
             self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
             self.end_headers()
+
+        def do_POST(self) -> None:
+            route = urlparse(self.path).path
+            if route == "/api/research-preview":
+                origin = self.headers.get("Origin", "")
+                if origin and urlparse(origin).hostname not in {"localhost", "127.0.0.1"}:
+                    return self.respond(HTTPStatus.FORBIDDEN, {"error": "Local origin required"})
+                try:
+                    length = int(self.headers.get("Content-Length", "0"))
+                    if length < 1 or length > 64 * 1024:
+                        raise ValueError("Preview request must be under 64 KB")
+                    payload = json.loads(self.rfile.read(length))
+                    if not isinstance(payload, dict):
+                        raise ValueError("Request body must be a JSON object")
+                    return self.respond(HTTPStatus.OK, research_preview(payload))
+                except (ValueError, KeyError, json.JSONDecodeError, OSError, GitError) as exc:
+                    return self.respond(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            if route != "/api/runs":
+                return self.respond(HTTPStatus.NOT_FOUND, {"error": "Not found"})
+            if database_path is None:
+                return self.respond(
+                    HTTPStatus.NOT_IMPLEMENTED, {"error": "Run creation unavailable"}
+                )
+            origin = self.headers.get("Origin", "")
+            if origin and urlparse(origin).hostname not in {"localhost", "127.0.0.1"}:
+                return self.respond(HTTPStatus.FORBIDDEN, {"error": "Local origin required"})
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length < 1 or length > 8 * 1024 * 1024:
+                    raise ValueError("Request must be under 8 MB")
+                payload = json.loads(self.rfile.read(length))
+                if not isinstance(payload, dict):
+                    raise ValueError("Request body must be a JSON object")
+                goal = str(payload.get("goal", "")).strip()
+                if not goal or len(goal) > 1000:
+                    raise ValueError("Research topic must contain 1–1000 characters")
+                iterations = payload.get("max_iterations", 3)
+                if (
+                    isinstance(iterations, bool)
+                    or not isinstance(iterations, int)
+                    or not 1 <= iterations <= 3
+                ):
+                    raise ValueError("Research depth must be between one and three iterations")
+                change_type = payload.get("change_type")
+                if change_type not in (
+                    None,
+                    ChangeType.CONFIG_ONLY.value,
+                    ChangeType.CODE_CHANGE.value,
+                ):
+                    raise ValueError("Change scope must be automatic, configuration, or code")
+                metric_name = str(payload.get("metric_name", "validation_accuracy")).strip()
+                if not metric_name or len(metric_name) > 80:
+                    raise ValueError("Metric name must contain 1–80 characters")
+                direction = MetricDirection(payload.get("direction", "MAXIMIZE"))
+                seed = payload.get("seed", 42)
+                if (
+                    isinstance(seed, bool)
+                    or not isinstance(seed, int)
+                    or not 0 <= seed <= 2**32 - 1
+                ):
+                    raise ValueError("Random seed must be an integer from 0 to 4294967295")
+                constraints = str(payload.get("constraints", "")).strip()
+                if len(constraints) > 3000:
+                    raise ValueError(
+                        "Additional research instructions must be 3000 characters or fewer"
+                    )
+                max_queries = payload.get("max_literature_queries", 2)
+                if (
+                    isinstance(max_queries, bool)
+                    or not isinstance(max_queries, int)
+                    or not 1 <= max_queries <= 3
+                ):
+                    raise ValueError("Literature query count must be between one and three")
+                max_retrieved_papers = payload.get("max_retrieved_papers", 6)
+                if (
+                    isinstance(max_retrieved_papers, bool)
+                    or not isinstance(max_retrieved_papers, int)
+                    or not 1 <= max_retrieved_papers <= 10
+                ):
+                    raise ValueError("Retrieved paper limit must be between one and ten")
+                research_id = uuid4()
+                repo_value = str(payload.get("baseline_path", "")).strip()
+                if not repo_value and (metric_name, direction.value) not in {
+                    ("validation_accuracy", "MAXIMIZE"),
+                    ("validation_loss", "MINIMIZE"),
+                }:
+                    raise ValueError(
+                        "The included MNIST baseline supports validation_accuracy (maximize) "
+                        "or validation_loss (minimize)"
+                    )
+                repo = Path(repo_value).expanduser().resolve() if repo_value else None
+                project_root = Path(__file__).resolve().parents[2]
+                runtime_root = project_root / ".labpilot"
+                if repo is None:
+                    repo = prepare_example(
+                        project_root / "examples" / "mnist_baseline",
+                        runtime_root / "baselines" / str(research_id),
+                    )
+                execution = configure_docker(
+                    repo,
+                    runtime_root,
+                    use_predefined_patch=repo_value == "",
+                )
+                if execution.dataset is not None:
+                    execution = execution.model_copy(
+                        update={
+                            "dataset": execution.dataset.model_copy(
+                                update={
+                                    "metric_name": metric_name,
+                                    "direction": direction.value.lower(),
+                                }
+                            )
+                        }
+                    )
+                uploaded = payload.get("papers", [])
+                if not isinstance(uploaded, list) or len(uploaded) > 5:
+                    raise ValueError("Upload at most five papers")
+                encoded_files = [
+                    item.get("data", "") for item in uploaded if isinstance(item, dict)
+                ]
+                encoded_limit = ((5 * 1024 * 1024 + 2) // 3) * 4
+                if len(encoded_files) != len(uploaded) or any(
+                    not isinstance(data, str) for data in encoded_files
+                ):
+                    raise ValueError("Each paper must include a file and contents")
+                if sum(map(len, encoded_files)) > encoded_limit:
+                    raise ValueError("Uploaded papers must total 5 MB or less")
+                papers: tuple[Paper, ...] = ()
+                accepted: list[Paper] = []
+                for item in uploaded:
+                    if not isinstance(item, dict):
+                        raise ValueError("Each paper must include a file and contents")
+                    accepted.append(
+                        uploaded_paper(str(item.get("name", "paper")), str(item.get("data", "")))
+                    )
+                if accepted:
+                    papers = tuple(accepted)
+                if sum(len(item.full_text_excerpt or "") for item in papers) > 60_000:
+                    raise ValueError("Uploaded papers exceed the total text limit")
+                state = repository.create(
+                    ResearchState(
+                        research_id=research_id,
+                        research_goal=(
+                            f"{goal}\n\nAdditional user constraints:\n{constraints}"
+                            if constraints
+                            else goal
+                        ),
+                        next_step=Step.INSPECT_REPOSITORY,
+                        required_change_type=ChangeType(change_type) if change_type else None,
+                        papers=papers,
+                        literature_settings=LiteratureSettings(enabled=True),
+                        execution=execution,
+                        llm=LLMSettings.from_environment(),
+                        baseline=Baseline(metric_name=metric_name, direction=direction),
+                        simulation=SimulationConfig(seed=seed),
+                        budget=ResearchBudget(
+                            max_literature_queries=max_queries,
+                            max_papers=max_retrieved_papers + len(papers),
+                            papers=len(papers),
+                            max_claims=12,
+                            max_llm_calls=40,
+                            max_llm_tokens=200_000,
+                            max_iterations=iterations,
+                            max_experiments=iterations + 1,
+                            max_failed_experiments=2,
+                            max_replans=2,
+                        ),
+                    )
+                )
+
+                def run_in_background() -> None:
+                    worker = SQLiteResearchRepository(database_path)
+                    try:
+                        execute(worker, state.research_id)
+                    except Exception as exc:
+                        current = worker.load(state.research_id)
+                        if current.status not in {RunStatus.FAILED, RunStatus.COMPLETED}:
+                            worker.save(
+                                current.evolve(status=RunStatus.FAILED, termination_reason=str(exc))
+                            )
+                    finally:
+                        worker.close()
+
+                threading.Thread(target=run_in_background, daemon=True).start()
+                return self.respond(
+                    HTTPStatus.ACCEPTED,
+                    {"research_id": str(state.research_id), "status": "RUNNING"},
+                )
+            except (
+                ValueError,
+                KeyError,
+                UnicodeDecodeError,
+                json.JSONDecodeError,
+                OSError,
+                GitError,
+                subprocess.TimeoutExpired,
+            ) as exc:
+                return self.respond(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
 
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
@@ -380,7 +725,7 @@ def activity(state: ResearchState, limit: int) -> list[dict[str, Any]]:
 
 def serve(path: Path, host: str = "127.0.0.1", port: int = 8000) -> None:
     repository = SQLiteResearchRepository(path)
-    server = ThreadingHTTPServer((host, port), handler_for(repository))
+    server = ThreadingHTTPServer((host, port), handler_for(repository, path))
     try:
         print(f"LabPilot API listening on http://{host}:{port}")
         server.serve_forever()

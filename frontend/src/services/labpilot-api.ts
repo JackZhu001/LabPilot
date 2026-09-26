@@ -37,6 +37,68 @@ export function getRuns(): Promise<RunSummary[]> {
     : request("/runs", "Runs");
 }
 
+export async function createResearchRun(input: {
+  goal: string;
+  baseline_path: string;
+  papers: { name: string; data: string }[];
+  max_iterations: number;
+  max_literature_queries: number;
+  max_retrieved_papers: number;
+  seed: number;
+  constraints: string;
+  change_type: "CONFIG_ONLY" | "CODE_CHANGE" | null;
+  metric_name: string;
+  direction: "MAXIMIZE" | "MINIMIZE";
+}): Promise<{ research_id: string; status: string }> {
+  if (USE_MOCKS) throw new Error("Creating research requires the live API.");
+  const response = await fetch(`${API}/runs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const result = await response.json() as { research_id?: string; status?: string; error?: string };
+  if (!response.ok) throw new Error(result.error ?? `Could not start research (${response.status})`);
+  return { research_id: result.research_id!, status: result.status! };
+}
+
+export interface ResearchPlanPreview {
+  goal: string;
+  baseline: { name: string; commit_sha: string; file_count: number; important_files: string[] };
+  objective: { metric_name: string; direction: "MAXIMIZE" | "MINIMIZE" };
+  papers: string[];
+  literature: { providers: string[]; max_queries: number; max_papers: number };
+  seed: number;
+  constraints: string;
+  max_iterations: number;
+  max_experiments: number;
+  change_type: string | null;
+  warnings: string[];
+}
+
+export async function getResearchPreview(input: {
+  goal: string;
+  baseline_path: string;
+  papers: string[];
+  max_iterations: number;
+  max_literature_queries: number;
+  max_retrieved_papers: number;
+  seed: number;
+  constraints: string;
+  change_type: "CONFIG_ONLY" | "CODE_CHANGE" | null;
+  metric_name: string;
+  direction: "MAXIMIZE" | "MINIMIZE";
+}): Promise<ResearchPlanPreview> {
+  if (USE_MOCKS) throw new Error("Research preview requires the live API.");
+  const response = await fetch(`${API}/research-preview`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const result = await response.json() as ResearchPlanPreview & { error?: string };
+  if (!response.ok) throw new Error(result.error ?? `Could not prepare research preview (${response.status})`);
+  return result;
+}
+
 export function getAllRuns(): Promise<ResearchRun[]> {
   return USE_MOCKS
     ? Promise.resolve([...runs].sort((a, b) => b.updated_at.localeCompare(a.updated_at)))
