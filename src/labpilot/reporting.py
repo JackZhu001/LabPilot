@@ -340,14 +340,42 @@ def benchmark(states: Sequence[ResearchState]) -> dict[str, Any]:
     contexts: dict[str, dict[str, Any]] = {}
     baselines: dict[str, list[float]] = defaultdict(list)
     for state, row in zip(ordered, rows, strict=True):
+        image_id = next(
+            (
+                experiment.result.execution.docker.image_id
+                for experiment in state.experiments
+                if experiment.result
+                and experiment.result.execution
+                and experiment.result.execution.docker.image_id
+            ),
+            None,
+        )
+        interventions = sorted(
+            {
+                json.dumps(
+                    {
+                        "patch_sha256": hashlib.sha256(e.config.patch_diff.encode()).hexdigest()
+                        if e.config.patch_diff
+                        else None,
+                        "overrides": e.config.overrides.model_dump(mode="json", exclude_none=True)
+                        if e.config.overrides
+                        else None,
+                    },
+                    sort_keys=True,
+                )
+            for e in state.experiments
+            if e.purpose == ExperimentPurpose.CANDIDATE
+            }
+        )
         context = {
             "executor": row["executor"],
             "metric_name": row["metric_name"],
             "direction": row["direction"],
             "base_commit": state.execution.base_commit_sha,
             "repository": str(state.execution.baseline_repo_path),
-            "image": state.execution.image,
+            "image": image_id or state.execution.image,
             "command": list(state.execution.training_command),
+            "intervention_sha256": hashlib.sha256(json.dumps(interventions).encode()).hexdigest(),
             "min_delta": state.baseline.min_delta,
             "regression_delta": state.baseline.regression_delta,
             "max_experiments": state.budget.max_experiments,
@@ -412,8 +440,9 @@ def benchmark(states: Sequence[ResearchState]) -> dict[str, Any]:
         "limitations": [
             "Observational comparison, not a causal estimate of literature grounding "
             "or model quality.",
-            "Cohorts match executor, repository, commit, image tag, command, objective, baseline, "
-            "thresholds and experiment/HPO budgets. Baseline values may vary across seeds; "
+            "Cohorts match executor, repository, commit, image digest/reference, command, "
+            "intervention, objective, baseline, thresholds and experiment/HPO budgets. "
+            "Baseline values may vary across seeds; "
             "improvement is paired against each run’s own baseline. "
             "Verify dataset versions and image digests manually.",
             "Only completed runs with measured candidates enter improvement statistics. "

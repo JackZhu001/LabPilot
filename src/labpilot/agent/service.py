@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import TypeVar, cast
 from uuid import UUID, uuid5
 
@@ -416,6 +417,8 @@ class AgentLoopService:
             f"Required plan change type: {required_change_type.value}.\n"
             f"Supported SearchSpace parameter names: {compact_json(supported_parameters)}. "
             "Do not invent other tunable parameter names.\n"
+            f"Allowed repository paths (copy these exact strings): "
+            f"{compact_json(inspection.file_tree)}\n"
             f"Repository inspection: {compact_json(inspection)}\n"
             f"Remaining HPO trials: {state.budget.max_hpo_trials - state.budget.hpo_trials}."
         )
@@ -437,6 +440,33 @@ class AgentLoopService:
         ):
             return self._fail(state, "Experiment plan violates the required change type")
         known = set(inspection.file_tree)
+        by_name = {
+            Path(path).name: path
+            for path in inspection.file_tree
+            if sum(Path(item).name == Path(path).name for item in inspection.file_tree) == 1
+        }
+
+        def resolve_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
+            resolved = []
+            for value in paths:
+                candidate = value.strip().strip("`'\"")
+                parts = candidate.split()
+                if parts:
+                    candidate = parts[-1].strip("`'\"")
+                candidate = candidate.removeprefix("a/").removeprefix("b/")
+                resolved.append(
+                    candidate if candidate in known else by_name.get(Path(candidate).name, value)
+                )
+            return tuple(resolved)
+
+        proposal = proposal.model_copy(
+            update={
+                "files_to_inspect": tuple(
+                    path for path in resolve_paths(proposal.files_to_inspect) if path in known
+                ),
+                "files_to_modify": resolve_paths(proposal.files_to_modify),
+            }
+        )
         if not set(proposal.files_to_inspect + proposal.files_to_modify) <= known:
             return self._fail(state, "Experiment plan references unknown repository files")
         if (

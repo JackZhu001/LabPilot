@@ -10,7 +10,7 @@ decision to a measurable result.
 Literature → Evidence → Hypothesis → Experiment → Metric → Keep / Reject / Replan
 ```
 
-**Current scope: Phases 1–6 complete; Phase 7 is in progress with resumable multi-seed evaluation.** See the [Phase 7 results and remaining work](docs/phase7-report.md). Fake mode
+**Current scope: Phases 1–7 complete; Phase 8 is in progress with DeepSeek-guided multi-seed evaluation.** See the [Phase 8 results and remaining work](docs/phase8-report.md). Fake mode
 preserves the fast offline fixtures. Agent mode uses a provider-independent typed
 interface with DeepSeek to inspect a bounded repository context, propose and plan a
 hypothesis, generate a validated patch when required, and explain the measured
@@ -21,7 +21,7 @@ selected hypothesis. Git, Docker, Optuna, and DecisionEngine retain execution au
 
 ## Explore the workbench
 
-[中文介绍](README.zh-CN.md) · [Quick start](#setup) · [Frontend setup](frontend/README.md) · [Phase 6 validation](docs/phase6-report.md) · [Phase 7 results](docs/phase7-report.md)
+[中文介绍](README.zh-CN.md) · [Quick start](#setup) · [Frontend setup](frontend/README.md) · [Phase 6 validation](docs/phase6-report.md) · [Phase 7 results](docs/phase7-report.md) · [Phase 8 results](docs/phase8-report.md)
 
 ![LabPilot research workbench in English](docs/images/dashboard-en.png)
 
@@ -415,7 +415,7 @@ Run the bounded Phase 4 DeepSeek outer loop:
 ```bash
 export DEEPSEEK_API_KEY="..."
 export DEEPSEEK_BASE_URL="https://api.deepseek.com"
-export DEEPSEEK_MODEL="deepseek-v4-pro"
+export DEEPSEEK_MODEL="deepseek-flash"
 labpilot prepare-example .labpilot/baselines/mnist-phase4
 labpilot run --goal "Improve validation accuracy while keeping the model lightweight" \
   --agent --executor docker --repo .labpilot/baselines/mnist-phase4 \
@@ -425,7 +425,9 @@ labpilot run --goal "Improve validation accuracy while keeping the model lightwe
 
 Credentials are read only from the process environment. They are never accepted as
 CLI arguments or stored in state, SQLite, prompts, artifacts, reports, or logs.
-`DEEPSEEK_BASE_URL` and `DEEPSEEK_MODEL` default to the values above. Agent mode
+`DEEPSEEK_BASE_URL` defaults to the value above; the default model is `deepseek-flash`.
+For a local `.env`, load it with `set -a; source .env; set +a` before running the CLI.
+Agent mode
 requires Docker. Use `status` to inspect persisted structured outputs and usage;
 ordinary `resume` starts at the next uncommitted logical role.
 
@@ -682,7 +684,7 @@ Deterministic capabilities remain ordinary tools behind the harness.
 `LLMClient.generate_structured()` is provider-independent. `DeepSeekLLMClient`
 implements it through the OpenAI-compatible Chat Completions API with JSON mode,
 Pydantic JSON Schema instructions, validation feedback, and bounded retries. The
-default model is `deepseek-v4-pro`; the base URL, model, and API key come from
+default model is `deepseek-flash`; the base URL, model, and API key come from
 environment variables. Only model/base URL settings are persisted. Request IDs,
 operation/template identity, input/output/cached/reasoning token counts, model, and
 latency are stored in `LLMUsage` records.
@@ -742,15 +744,18 @@ BLOCKED at the retry cursor; invalid final structured output becomes FAILED.
 | 4 | Structured DeepSeek outer loop and validated patch planning |
 | 5 | arXiv and Semantic Scholar evidence grounding — complete |
 | **6** | Snapshot reports, observational benchmarks, and frontend integration — complete |
-| **7 (in progress)** | Resumable multi-seed evaluation runs and paired metric summaries |
+| **7** | Resumable multi-seed evaluation runs and paired metric summaries — complete |
+| **8 (in progress)** | DeepSeek-proposed changes with multi-seed validation |
 
 ### Remaining work
 
 - [x] Generate reproducible reports from persisted results and provenance (Phase 6).
 - [x] Add observational benchmark workflow (Phase 6).
 - [x] Add resumable multi-seed evaluation command (Phase 7, first increment).
-- [x] Validate one bounded real Docker multi-seed evaluation (3 seeds; limited evidence).
-- [ ] Repeat across more seeds and pre-defined interventions; record image digests and dataset versions.
+- [x] Validate the resumable Docker evaluator across 8 seeds and two dropout settings (Phase 7).
+- [x] Run a bounded live DeepSeek agent experiment and measure its proposed intervention (Phase 8, first increment).
+- [ ] Automate candidate handoff from DeepSeek planning into the resumable multi-seed evaluator.
+- [ ] Extend beyond this small MNIST training split and compare additional pre-defined changes.
 
 
 ## Reports and evaluation (Phase 6)
@@ -792,6 +797,15 @@ outcomes ignore seeds and are not measurements. Keep the generated evaluation ID
 resume after interruption. Seed runs are stored in SQLite, and a JSON manifest freezes
 the goal, seed list and execution settings. The same ID with changed settings is rejected.
 The summary computes each candidate’s improvement against its own measured baseline,
-then aggregates across seeds under matching execution conditions. Real Docker batches
-are sequential and consume training resources. The first bounded three-seed Docker
-evaluation and its limitations are in [the Phase 7 report](docs/phase7-report.md).
+then aggregates across seeds under matching execution conditions and candidate
+interventions. Real Docker batches are sequential and consume training resources.
+See [Phase 7 results](docs/phase7-report.md) and the
+[DeepSeek-guided Phase 8 evaluation](docs/phase8-report.md).
+
+## Phase 8: DeepSeek-guided evaluation
+
+The first increment uses the bounded DeepSeek agent to select configuration-only
+interventions, then checks proposed dropout settings over matching seeds. The API key
+is read from `DEEPSEEK_API_KEY`; `.env` is ignored by Git and must be loaded into the
+shell explicitly. Results, token use, failed attempts, and remaining work are recorded
+in [the Phase 8 report](docs/phase8-report.md).

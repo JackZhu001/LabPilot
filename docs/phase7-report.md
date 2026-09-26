@@ -66,8 +66,10 @@ matched seeds into separate cohorts. Cohorts still require a common executor, ba
 repository and commit, command, image digest, dataset procedure, metric direction,
 thresholds and budgets.
 
-## Next Phase 7 work
+## Phase 8 follow-up
 
-The bounded-execution milestone is complete. Continue with more independent seeds and
-other pre-defined interventions, preserving image digests and dataset versions. Do not
-generalize from these eight seeds or treat the fake demonstration as experimental evidence.
+Phase 7's repeated-evaluation increment is complete. Phase 8 adds a DeepSeek-proposed
+dropout 0.2 intervention and compares it with this dropout 0.3 cohort across the same
+eight seeds; see the [Phase 8 report](phase8-report.md). Neither change has a positive
+mean improvement. Do not generalize from these runs or treat the fake demonstration as
+experimental evidence.

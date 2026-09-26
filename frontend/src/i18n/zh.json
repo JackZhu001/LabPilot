@@ -404,7 +404,7 @@
   "Candidate experiment failed": "候选实验失败",
   "Failed to fetch": "连接失败，请确认本地 API 服务已启动。",
   "Observational comparison, not a causal estimate of literature grounding or model quality.": "这是历史观察对比，并非文献增强或模型质量的因果评估。",
-  "Cohorts match executor, repository, commit, image tag, command, objective, baseline, thresholds and experiment/HPO budgets. Verify dataset versions and image digests manually.": "分组匹配执行器、仓库、提交、镜像标签、命令、目标、基线、阈值和实验 / 调参预算。数据集版本与镜像摘要需另行核对。",
+  "Cohorts match executor, repository, commit, image digest/reference, command, intervention, objective, baseline, thresholds and experiment/HPO budgets. Baseline values may vary across seeds; improvement is paired against each run’s own baseline. Verify dataset versions and image digests manually.": "分组匹配执行器、仓库、提交、镜像摘要或引用、命令、实验干预、目标、基线、阈值和实验 / 调参预算。不同随机种子的基线可能不同；提升值按每次运行各自的基线配对计算。数据集版本仍需核对。",
   "Only completed runs with measured candidates enter improvement statistics. Missing measurements are not zero. Simulations are separate from real execution.": "只有已完成且含候选测量值的运行参与提升统计。缺失值不会算作零，模拟与真实执行分开处理。",
   "Token counts and execution seconds are resource measures; dollar cost is not recorded.": "令牌数和执行耗时用于衡量资源，未记录美元费用。",
   "PROPOSED": "已提出",
@@ -414,5 +414,7 @@
   "LITERATURE_GROUNDED": "文献充分支持",
   "PARTIALLY_GROUNDED": "文献部分支持",
   "Phase 7": "阶段 7",
-  "Resumable multi-seed evaluations": "可恢复的多随机种子评估"
+  "Resumable multi-seed evaluations": "可恢复的多随机种子评估",
+  "Phase 8": "阶段 8",
+  "DeepSeek-assisted multi-seed campaigns": "DeepSeek 辅助的多种子实验"
 }

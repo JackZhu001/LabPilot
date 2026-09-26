@@ -56,6 +56,7 @@ export default function SystemPage() {
               { key: t("Phase 5"), value: t("arXiv / Semantic Scholar evidence grounding") },
               { key: t("Phase 6"), value: t("Snapshot reports and observational benchmarks") },
               { key: t("Phase 7"), value: t("Resumable multi-seed evaluations") },
+              { key: t("Phase 8"), value: t("DeepSeek-assisted multi-seed campaigns") },
             ]}
           />
         </Panel>

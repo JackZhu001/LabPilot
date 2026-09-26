@@ -346,6 +346,7 @@ export interface BenchmarkReport {
   schema_version: number; runs: RunEvaluation[]; limitations: string[];
   groups: { id: string; context: {
     executor: string; metric_name: string; direction: string; base_commit: string | null;
-    repository: string; baseline: number | null; max_experiments: number; max_hpo_trials: number;
+    repository: string; intervention_sha256: string; baseline: number | null;
+    max_experiments: number; max_hpo_trials: number;
   }; strategies: BenchmarkStrategy[] }[];
 }

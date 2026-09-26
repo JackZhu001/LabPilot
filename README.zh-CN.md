@@ -37,7 +37,7 @@ npm ci
 npm run dev
 ```
 
-打开终端显示的本地地址。顶栏可切换语言、动画与主题，偏好保存在本设备上。真实实验与 DeepSeek 配置请查看 [完整使用说明](README.md#setup)，密钥通过环境变量提供，不要提交到仓库。
+打开终端显示的本地地址。顶栏可切换语言、动画与主题，偏好保存在本设备上。真实实验与 DeepSeek 配置请查看 [完整使用说明](README.md#setup)，密钥通过环境变量提供，不要提交到仓库。根目录 `.env` 不会自动加载，使用前运行 `set -a; source .env; set +a`。
 
 ## 多种子评估（Phase 7）
 
@@ -66,7 +66,7 @@ labpilot benchmark --db .labpilot/labpilot.sqlite3 --format json > benchmark.jso
 
 ## 当前进度与边界
 
-Phase 1–6 已实现；Phase 7 已完成可恢复评估命令和首批八种子真实 Docker 评估，仍需扩大重复次数并覆盖更多预先定义的干预。详见 [Phase 6 验证记录](docs/phase6-report.md) 和 [Phase 7 实测与进度](docs/phase7-report.md)。截图为本地演示运行，包含模拟与 Docker 实验；不能将 MNIST 结果理解为通用能力评测。
+Phase 1–7 已实现；Phase 8 正在推进 DeepSeek 提议与多种子验证的衔接。dropout 0.2 和 0.3 在各 8 个种子上的平均提升均为负值，目前没有稳定收益证据。详见 [Phase 7 实测记录](docs/phase7-report.md) 和 [Phase 8 DeepSeek 评估](docs/phase8-report.md)。截图为本地演示运行，MNIST 结果不能代表通用能力。
 
 历史运行对比属于观察性统计，不证明文献策略的因果收益。项目是有边界的研究自动化系统，目前不应宣称已经实现递归自我改进（RSI）。
 

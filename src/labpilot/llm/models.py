@@ -26,7 +26,7 @@ from labpilot.models.training import TrainingOverrides
 
 class LLMSettings(DomainModel):
     provider: Literal["deepseek"] = "deepseek"
-    model: Text = "deepseek-v4-pro"
+    model: Text = "deepseek-flash"
     base_url: HttpUrl = HttpUrl("https://api.deepseek.com")
     temperature: Annotated[float, Field(ge=0, le=2, allow_inf_nan=False)] = 0.2
     max_output_tokens: int = Field(default=4096, ge=128, le=32768)
@@ -42,7 +42,7 @@ class LLMSettings(DomainModel):
         return cls.model_validate(
             {
                 "base_url": values.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-                "model": values.get("DEEPSEEK_MODEL", "deepseek-v4-pro"),
+                "model": values.get("DEEPSEEK_MODEL", "deepseek-flash"),
             }
         )
 
@@ -92,7 +92,11 @@ class RepositoryInspection(DomainModel):
 
 
 class RepositoryInspectionSummary(DomainModel):
-    training_entrypoint: Text
+    training_entrypoint: Text = Field(
+        description=(
+            "Exact relative file path copied from the tracked file tree, not a shell command."
+        )
+    )
     model_summary: Text
     configuration_summary: Text
     available_hyperparameters: tuple[Text, ...] = Field(max_length=16)
