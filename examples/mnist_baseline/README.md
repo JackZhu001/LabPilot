@@ -10,8 +10,9 @@ on 2,000 disjoint examples from the same seeded permutation of the training set.
 The official test split is not used for hypothesis selection. Two CPU threads and
 fixed seeds keep repeated comparisons practical; GPU support is not required.
 
-`download.py` retrieves and verifies MNIST during image preparation. Docker caches
-that layer. `train.py` uses `download=False`, so training needs no network.
+LabPilot downloads the four raw MNIST archives to its local dataset cache and checks
+their MD5 values before staging them into the image build. `download.py` prepares the
+torchvision cache from those archives; training containers have no network access.
 Training writes `outputs/metrics.json` with schema version 1, validation accuracy,
 validation loss, and the effective seed and epoch count. Logs are informational.
 
@@ -30,17 +31,17 @@ leaves that baseline checkout and commit unchanged. The default predefined patch
 changes only `dropout: 0.0` to `dropout: 0.3`. Use `--patch FILE` for another supplied
 unified diff; no patch generation model is involved.
 
-Docker must be running. The initial image build downloads Python dependencies and
-MNIST and may take several minutes. Later builds reuse cached dependency/data
-layers. Training itself should take seconds to a few minutes, depending on hardware.
+Docker must be running. The first setup downloads Python dependencies and the
+checksum-verified dataset on the host, then builds the image. Later builds reuse
+cached dependency and dataset layers. Training itself should take seconds to a few
+minutes, depending on hardware.
 The image has pinned direct Python dependencies; its exact resolved image ID is
 recorded for each execution. Transitive dependencies are not fully locked, and
 bit-identical training across architectures or library versions is not promised.
 
-For an explicit prebuild or offline reuse after preparation:
+After the first LabPilot run builds the image, reuse it explicitly with:
 
 ```bash
-docker build -t labpilot-mnist:phase2 examples/mnist_baseline
 labpilot run --goal "Dropout comparison" --executor docker \
   --repo .labpilot/baselines/mnist --reuse-image --image labpilot-mnist:phase2 \
   --max-experiments 2 --max-replans 0 --min-delta 0.001
