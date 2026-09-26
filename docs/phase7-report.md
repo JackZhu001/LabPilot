@@ -26,6 +26,10 @@ resumption and aggregation paths only; it is not an ML result.
 - Goal: measure dropout 0.3 against the unchanged MNIST baseline using validation accuracy.
 - Seeds: 42–49; Docker image tag `labpilot-mnist:phase2`, baseline commit
   `54148c39bf8285f760f04435c07a963b3e3b37d9`, and `min_delta=0.001`.
+- Immutable image digest: `labpilot-mnist@sha256:0fd7a733d0f30af943d8ef09dc4cb50bdade0623194358fbe17c890ddbe6ad8f`.
+- Dataset procedure: cached MNIST training split; each seed selects 10,000 training
+  examples and 2,000 disjoint validation examples from that split using a seeded
+  permutation. The baseline and candidate are paired on the same split for each seed.
 - All eight baseline/candidate pairs completed successfully (16 Docker executions).
   No LLM calls were made.
 
@@ -59,7 +63,8 @@ seed runs from the same SQLite database.
 Improvements are paired against each run’s measured baseline. Baseline values can vary
 by seed, so they are reported as a cohort mean and range rather than splitting otherwise
 matched seeds into separate cohorts. Cohorts still require a common executor, baseline
-repository and commit, command, image tag, metric direction, thresholds and budgets.
+repository and commit, command, image digest, dataset procedure, metric direction,
+thresholds and budgets.
 
 ## Next Phase 7 work
 
