@@ -82,6 +82,7 @@ def evaluate_run(state: ResearchState) -> dict[str, Any]:
     )
     return {
         "research_id": str(state.research_id),
+        "seed": state.simulation.seed,
         "goal": state.research_goal,
         "revision": state.revision,
         "snapshot_sha256": fingerprint(state),
@@ -337,6 +338,7 @@ def benchmark(states: Sequence[ResearchState]) -> dict[str, Any]:
     rows = [evaluate_run(s) for s in ordered]
     cohorts: dict[str, list[dict[str, Any]]] = defaultdict(list)
     contexts: dict[str, dict[str, Any]] = {}
+    baselines: dict[str, list[float]] = defaultdict(list)
     for state, row in zip(ordered, rows, strict=True):
         context = {
             "executor": row["executor"],
@@ -346,7 +348,6 @@ def benchmark(states: Sequence[ResearchState]) -> dict[str, Any]:
             "repository": str(state.execution.baseline_repo_path),
             "image": state.execution.image,
             "command": list(state.execution.training_command),
-            "baseline": row["baseline"],
             "min_delta": state.baseline.min_delta,
             "regression_delta": state.baseline.regression_delta,
             "max_experiments": state.budget.max_experiments,
@@ -355,6 +356,8 @@ def benchmark(states: Sequence[ResearchState]) -> dict[str, Any]:
         key = hashlib.sha256(json.dumps(context, sort_keys=True).encode()).hexdigest()[:16]
         cohorts[key].append(row)
         contexts[key] = context
+        if row["baseline"] is not None:
+            baselines[key].append(row["baseline"])
     groups = []
     for key, cohort in sorted(cohorts.items()):
         strategies = []
@@ -394,7 +397,14 @@ def benchmark(states: Sequence[ResearchState]) -> dict[str, Any]:
                     else None,
                 }
             )
-        groups.append({"id": key, "context": contexts[key], "strategies": strategies})
+        baseline_values = baselines[key]
+        group_context = {
+            **contexts[key],
+            "baseline": mean(baseline_values) if baseline_values else None,
+            "baseline_min": min(baseline_values) if baseline_values else None,
+            "baseline_max": max(baseline_values) if baseline_values else None,
+        }
+        groups.append({"id": key, "context": group_context, "strategies": strategies})
     return {
         "schema_version": 1,
         "runs": rows,
@@ -403,7 +413,8 @@ def benchmark(states: Sequence[ResearchState]) -> dict[str, Any]:
             "Observational comparison, not a causal estimate of literature grounding "
             "or model quality.",
             "Cohorts match executor, repository, commit, image tag, command, objective, baseline, "
-            "thresholds and experiment/HPO budgets. "
+            "thresholds and experiment/HPO budgets. Baseline values may vary across seeds; "
+            "improvement is paired against each run’s own baseline. "
             "Verify dataset versions and image digests manually.",
             "Only completed runs with measured candidates enter improvement statistics. "
             "Missing measurements are not zero. Simulations are separate from real execution.",
@@ -437,8 +448,11 @@ def benchmark_markdown(data: dict[str, Any]) -> str:
     sections.append(
         "## Source snapshots\n\n"
         + _table(
-            ["Run", "Revision", "SHA-256"],
-            [[r["research_id"], r["revision"], r["snapshot_sha256"]] for r in data["runs"]],
+            ["Run", "Seed", "Revision", "SHA-256"],
+            [
+                [r["research_id"], r["seed"], r["revision"], r["snapshot_sha256"]]
+                for r in data["runs"]
+            ],
         )
     )
     return "\n\n".join(sections) + "\n"

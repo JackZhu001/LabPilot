@@ -39,6 +39,20 @@ npm run dev
 
 打开终端显示的本地地址。顶栏可切换语言、动画与主题，偏好保存在本设备上。真实实验与 DeepSeek 配置请查看 [完整使用说明](README.md#setup)，密钥通过环境变量提供，不要提交到仓库。
 
+## 多种子评估（Phase 7）
+
+使用相同目标和实验设置，对多个随机种子逐个运行并汇总配对提升值：
+
+```bash
+labpilot evaluate --goal "Does dropout improve validation accuracy?" \
+  --seeds 42,43,44 --executor docker --repo .labpilot/baselines/mnist-phase4 \
+  --evaluation-id 9cf9a8c8-35c1-4cb4-8773-596271b6ccbb
+```
+
+中断后使用相同的评估 ID 和参数重新运行即可从 SQLite 检查点续跑。离线模拟模式可省略 Docker 参数，但模拟结果不会随种子变化，不能作为真实训练测量。
+
+真实 Docker 评估已扩展到 8 个种子（42–49）：平均配对提升为 -0.000562，样本标准差为 0.001898，2/8 达到 KEEP 门槛。结果不支持认为 dropout 改动稳定有效。完整配置、运行 ID 和限制见 [Phase 7 实测记录](docs/phase7-report.md)；后续仍需更多种子与预先定义的干预。
+
 ## 报告
 
 ![研究报告预览](docs/images/report-en.png)
@@ -52,7 +66,7 @@ labpilot benchmark --db .labpilot/labpilot.sqlite3 --format json > benchmark.jso
 
 ## 当前进度与边界
 
-Phase 1–6 已实现，详见 [Phase 6 验证记录](docs/phase6-report.md)。截图为本地演示运行，包含模拟与 Docker 实验；不能将单次 MNIST 提升理解为通用能力评测。
+Phase 1–6 已实现；Phase 7 已完成可恢复评估命令和首批八种子真实 Docker 评估，仍需扩大重复次数并覆盖更多预先定义的干预。详见 [Phase 6 验证记录](docs/phase6-report.md) 和 [Phase 7 实测与进度](docs/phase7-report.md)。截图为本地演示运行，包含模拟与 Docker 实验；不能将 MNIST 结果理解为通用能力评测。
 
 历史运行对比属于观察性统计，不证明文献策略的因果收益。项目是有边界的研究自动化系统，目前不应宣称已经实现递归自我改进（RSI）。
 

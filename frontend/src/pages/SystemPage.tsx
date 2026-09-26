@@ -55,6 +55,7 @@ export default function SystemPage() {
               { key: t("Phase 4"), value: t("LLM hypothesis and patch generation") },
               { key: t("Phase 5"), value: t("arXiv / Semantic Scholar evidence grounding") },
               { key: t("Phase 6"), value: t("Snapshot reports and observational benchmarks") },
+              { key: t("Phase 7"), value: t("Resumable multi-seed evaluations") },
             ]}
           />
         </Panel>

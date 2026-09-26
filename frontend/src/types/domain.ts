@@ -323,7 +323,7 @@ export interface StudyDetail {
 }
 
 export interface RunEvaluation {
-  research_id: string; goal: string; revision: number; snapshot_sha256: string;
+  research_id: string; seed: number; goal: string; revision: number; snapshot_sha256: string;
   updated_at: string; status: RunStatus; decision: ResearchDecision | null;
   executor: ExecutionEnvironment; strategy: string; metric_name: string; direction: MetricDirection;
   baseline: number | null; best: number | null; improvement: number | null;

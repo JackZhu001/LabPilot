@@ -412,5 +412,7 @@
   "REJECTED": "已拒绝",
   "REPLANNED": "已重新规划",
   "LITERATURE_GROUNDED": "文献充分支持",
-  "PARTIALLY_GROUNDED": "文献部分支持"
+  "PARTIALLY_GROUNDED": "文献部分支持",
+  "Phase 7": "阶段 7",
+  "Resumable multi-seed evaluations": "可恢复的多随机种子评估"
 }

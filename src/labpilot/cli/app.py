@@ -1,13 +1,15 @@
 """CLI adapters for local, simulated research runs."""
 
+import hashlib
 import json
 import logging
+import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4, uuid5
 
 import typer
 from pydantic import ValidationError
@@ -22,7 +24,7 @@ from labpilot.hpo.reporting import format_studies
 from labpilot.llm.errors import LLMError
 from labpilot.llm.models import LLMSettings
 from labpilot.models.budget import ResearchBudget
-from labpilot.models.common import FakeOutcome, Step
+from labpilot.models.common import FakeOutcome, RunStatus, Step
 from labpilot.models.execution import ExecutionConfig, ExecutionEnvironment
 from labpilot.models.experiments import Baseline
 from labpilot.models.literature import LiteratureSettings
@@ -318,6 +320,143 @@ def report_command(
             if format == ReportFormat.MARKDOWN
             else json.dumps(research_report(state), indent=2, allow_nan=False)
         )
+
+
+@app.command("evaluate")
+def evaluate_command(
+    goal: Annotated[str, typer.Option(help="Research question shared by every seed.")],
+    seeds: Annotated[str, typer.Option(help="Comma-separated random seeds, for example 42,43,44.")],
+    db: DatabaseOption = DEFAULT_DB,
+    evaluation_id: Annotated[UUID | None, typer.Option()] = None,
+    executor: Annotated[ExecutionEnvironment, typer.Option()] = ExecutionEnvironment.FAKE,
+    repo: Annotated[
+        Path | None, typer.Option(help="Clean dedicated repository for Docker runs.")
+    ] = None,
+    patch: Annotated[
+        Path | None, typer.Option(help="Patch diff; Docker defaults to dropout intervention.")
+    ] = None,
+    runtime_root: Annotated[Path, typer.Option()] = Path(".labpilot"),
+    image: Annotated[str, typer.Option()] = "labpilot-mnist:phase2",
+    build_image: Annotated[bool, typer.Option("--build-image/--reuse-image")] = True,
+    timeout: Annotated[float, typer.Option(min=0.01)] = 180,
+    min_delta: Annotated[float, typer.Option(min=0.000000001)] = 0.01,
+    outcomes: Annotated[
+        str,
+        typer.Option(help="Fake mode only: comma-separated improve, regress, inconclusive, fail."),
+    ] = "improve",
+    format: Annotated[ReportFormat, typer.Option()] = ReportFormat.JSON,
+) -> None:
+    """Run or resume a durable multi-seed evaluation; seeds execute sequentially."""
+    try:
+        seed_values = tuple(int(value.strip()) for value in seeds.split(","))
+        if (
+            not seed_values
+            or any(seed < 0 for seed in seed_values)
+            or len(set(seed_values)) != len(seed_values)
+        ):
+            raise ValueError
+    except ValueError as exc:
+        raise typer.BadParameter(
+            "Provide unique non-negative integer seeds", param_hint="--seeds"
+        ) from exc
+    try:
+        scenario = SimulationConfig(
+            outcomes=tuple(FakeOutcome(value.strip()) for value in outcomes.split(","))
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(
+            "Use improve, regress, inconclusive, or fail", param_hint="--outcomes"
+        ) from exc
+    if executor == ExecutionEnvironment.DOCKER and repo is None:
+        raise typer.BadParameter("--repo is required for Docker execution")
+    if executor == ExecutionEnvironment.FAKE and repo is not None:
+        raise typer.BadParameter("--repo requires --executor docker")
+    evaluation_id = evaluation_id or uuid4()
+    execution = (
+        configure_docker(
+            repo,
+            runtime_root,
+            patch=patch,
+            image=image,
+            build_image=build_image,
+            timeout_seconds=timeout,
+        )
+        if repo
+        else ExecutionConfig(runtime_root=runtime_root.resolve())
+    )
+    manifest_path = runtime_root / "evaluations" / f"{evaluation_id}.json"
+    config = {
+        "id": str(evaluation_id),
+        "goal": goal,
+        "seeds": list(seed_values),
+        "executor": executor.value,
+        "outcomes": [item.value for item in scenario.outcomes]
+        if executor == ExecutionEnvironment.FAKE
+        else None,
+        "database": str(db.resolve()),
+        "runtime_root": str(runtime_root.resolve()),
+        "repo": str(repo.resolve()) if repo else None,
+        "patch_sha256": hashlib.sha256(patch.read_bytes()).hexdigest()
+        if patch
+        else None,
+        "image": image,
+        "build_image": build_image,
+        "base_commit_sha": execution.base_commit_sha,
+        "timeout": timeout,
+        "min_delta": min_delta,
+    }
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text())
+        if manifest["config"] != config:
+            raise typer.BadParameter("Evaluation ID already belongs to a different configuration")
+    else:
+        manifest = {"config": config}
+        temporary = manifest_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(manifest, indent=2) + "\n")
+        os.replace(temporary, manifest_path)
+    typer.echo(f"Evaluation ID: {evaluation_id}", err=True)
+    research_ids = [uuid5(evaluation_id, f"seed:{seed}") for seed in seed_values]
+    with repository_at(db) as repository:
+        for seed, research_id in zip(seed_values, research_ids, strict=True):
+            try:
+                state = repository.load(research_id)
+                if state.research_goal != goal or state.simulation.seed != seed:
+                    raise typer.BadParameter(
+                        f"Seed run {research_id} conflicts with its evaluation"
+                    )
+            except RunNotFoundError:
+                state = repository.create(
+                    ResearchState(
+                        research_id=research_id,
+                        research_goal=goal,
+                        simulation=scenario.model_copy(update={"seed": seed}),
+                        baseline=Baseline(min_delta=min_delta),
+                        execution=execution,
+                    )
+                )
+            if state.status not in {RunStatus.COMPLETED, RunStatus.FAILED}:
+                state = execute(repository, research_id)
+            decision = state.decision.value if state.decision else "NONE"
+            typer.echo(
+                f"seed={seed} run={research_id} status={state.status.value} decision={decision}",
+                err=True,
+            )
+        states = [repository.load(research_id) for research_id in research_ids]
+    result = benchmark(states)
+    result["evaluation_id"] = str(evaluation_id)
+    result["seeds"] = list(seed_values)
+    result["seed_runs"] = [str(item) for item in research_ids]
+    if executor == ExecutionEnvironment.FAKE:
+        result["interpretation"] = (
+            "Simulated control-flow check only; fake outcomes do not vary "
+            "with seed and are not scientific measurements."
+        )
+    typer.echo(
+        benchmark_markdown(result)
+        if format == ReportFormat.MARKDOWN
+        else json.dumps(result, indent=2)
+    )
 
 
 @app.command("benchmark")

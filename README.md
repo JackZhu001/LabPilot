@@ -10,7 +10,7 @@ decision to a measurable result.
 Literature → Evidence → Hypothesis → Experiment → Metric → Keep / Reject / Replan
 ```
 
-**Current scope: Phases 1–6 implemented — evidence-grounded experiments, snapshot reports and observational benchmarks.** Fake mode
+**Current scope: Phases 1–6 complete; Phase 7 is in progress with resumable multi-seed evaluation.** See the [Phase 7 results and remaining work](docs/phase7-report.md). Fake mode
 preserves the fast offline fixtures. Agent mode uses a provider-independent typed
 interface with DeepSeek to inspect a bounded repository context, propose and plan a
 hypothesis, generate a validated patch when required, and explain the measured
@@ -21,7 +21,7 @@ selected hypothesis. Git, Docker, Optuna, and DecisionEngine retain execution au
 
 ## Explore the workbench
 
-[中文介绍](README.zh-CN.md) · [Quick start](#setup) · [Frontend setup](frontend/README.md) · [Phase 6 validation](docs/phase6-report.md)
+[中文介绍](README.zh-CN.md) · [Quick start](#setup) · [Frontend setup](frontend/README.md) · [Phase 6 validation](docs/phase6-report.md) · [Phase 7 results](docs/phase7-report.md)
 
 ![LabPilot research workbench in English](docs/images/dashboard-en.png)
 
@@ -741,12 +741,16 @@ BLOCKED at the retry cursor; invalid final structured output becomes FAILED.
 | 3 | Typed, persisted, budgeted Optuna HPO through Docker trials |
 | 4 | Structured DeepSeek outer loop and validated patch planning |
 | 5 | arXiv and Semantic Scholar evidence grounding — complete |
-| **6** | Snapshot reports, observational benchmarks, evaluation, and frontend integration — complete |
+| **6** | Snapshot reports, observational benchmarks, and frontend integration — complete |
+| **7 (in progress)** | Resumable multi-seed evaluation runs and paired metric summaries |
 
 ### Remaining work
 
 - [x] Generate reproducible reports from persisted results and provenance (Phase 6).
-- [x] Add benchmark and evaluation workflows (Phase 6).
+- [x] Add observational benchmark workflow (Phase 6).
+- [x] Add resumable multi-seed evaluation command (Phase 7, first increment).
+- [x] Validate one bounded real Docker multi-seed evaluation (3 seeds; limited evidence).
+- [ ] Repeat across more seeds and pre-defined interventions; record image digests and dataset versions.
 
 
 ## Reports and evaluation (Phase 6)
@@ -771,3 +775,23 @@ cohort comparison and exports; `/reports/RUN_ID` previews a saved report. The da
 includes a CSS 3D research model with pause control, reduced-motion support and persistent
 light/dark themes. No additional frontend dependencies are required.
 See [Phase 6 validation](docs/phase6-report.md).
+
+
+## Phase 7: repeated evaluation
+
+Run the same research configuration sequentially with independent seeds:
+
+```bash
+labpilot evaluate --goal "Does dropout improve validation accuracy?" \
+  --seeds 42,43,44 --executor docker --repo .labpilot/baselines/mnist-phase4 \
+  --evaluation-id 9cf9a8c8-35c1-4cb4-8773-596271b6ccbb
+```
+
+Omit `--executor docker --repo ...` for an offline control-flow simulation; simulated
+outcomes ignore seeds and are not measurements. Keep the generated evaluation ID to
+resume after interruption. Seed runs are stored in SQLite, and a JSON manifest freezes
+the goal, seed list and execution settings. The same ID with changed settings is rejected.
+The summary computes each candidate’s improvement against its own measured baseline,
+then aggregates across seeds under matching execution conditions. Real Docker batches
+are sequential and consume training resources. The first bounded three-seed Docker
+evaluation and its limitations are in [the Phase 7 report](docs/phase7-report.md).
