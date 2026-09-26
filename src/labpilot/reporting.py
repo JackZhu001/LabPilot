@@ -75,6 +75,8 @@ def evaluate_run(state: ResearchState) -> dict[str, Any]:
         else (
             "literature"
             if state.literature_settings.enabled
+            else "proposed-config"
+            if state.proposal_source_run_id
             else "repository"
             if state.llm
             else "predefined"
@@ -91,6 +93,20 @@ def evaluate_run(state: ResearchState) -> dict[str, Any]:
         "decision": state.decision.value if state.decision else None,
         "executor": state.execution.environment.value,
         "strategy": strategy,
+        "proposal_source_run_id": str(state.proposal_source_run_id)
+        if state.proposal_source_run_id
+        else None,
+        "proposal_source_hypothesis_id": str(state.proposal_source_hypothesis_id)
+        if state.proposal_source_hypothesis_id
+        else None,
+        "proposal_source_plan_id": str(state.proposal_source_plan_id)
+        if state.proposal_source_plan_id
+        else None,
+        "training_overrides": state.execution.training_overrides.model_dump(
+            mode="json", exclude_none=True
+        )
+        if state.execution.training_overrides
+        else None,
         "metric_name": state.baseline.metric_name,
         "direction": state.baseline.direction.value,
         "baseline": baseline,

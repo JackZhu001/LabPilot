@@ -71,6 +71,9 @@ class ResearchState(DomainModel):
 
     schema_version: Literal[1] = 1
     research_id: UUID = Field(default_factory=uuid4)
+    proposal_source_run_id: UUID | None = None
+    proposal_source_hypothesis_id: UUID | None = None
+    proposal_source_plan_id: UUID | None = None
     research_goal: Text
     status: RunStatus = RunStatus.READY
     next_step: Step = Step.LITERATURE

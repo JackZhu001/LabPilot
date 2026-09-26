@@ -155,7 +155,13 @@ def execute_real_experiment(
         patch_id=patch.id if patch else None,
         status=ExperimentStatus.RUNNING,
         config=ExperimentConfig(
-            overrides=plan.configuration_overrides if plan is not None else None,
+            overrides=(
+                None
+                if baseline_run
+                else plan.configuration_overrides
+                if plan is not None
+                else state.execution.training_overrides
+            ),
             apply_patch=patch is not None,
             patch_diff=patch.diff if patch is not None else "",
             seed=state.simulation.seed,

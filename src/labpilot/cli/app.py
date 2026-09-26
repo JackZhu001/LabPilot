@@ -24,7 +24,7 @@ from labpilot.hpo.reporting import format_studies
 from labpilot.llm.errors import LLMError
 from labpilot.llm.models import LLMSettings
 from labpilot.models.budget import ResearchBudget
-from labpilot.models.common import FakeOutcome, RunStatus, Step
+from labpilot.models.common import ChangeType, FakeOutcome, RunStatus, Step
 from labpilot.models.execution import ExecutionConfig, ExecutionEnvironment
 from labpilot.models.experiments import Baseline
 from labpilot.models.literature import LiteratureSettings
@@ -324,10 +324,15 @@ def report_command(
 
 @app.command("evaluate")
 def evaluate_command(
-    goal: Annotated[str, typer.Option(help="Research question shared by every seed.")],
     seeds: Annotated[str, typer.Option(help="Comma-separated random seeds, for example 42,43,44.")],
+    goal: Annotated[
+        str | None, typer.Option(help="Research question; inherited from --from-run if omitted.")
+    ] = None,
     db: DatabaseOption = DEFAULT_DB,
     evaluation_id: Annotated[UUID | None, typer.Option()] = None,
+    from_run: Annotated[
+        UUID | None, typer.Option(help="Reuse a completed CONFIG_ONLY proposal.")
+    ] = None,
     executor: Annotated[ExecutionEnvironment, typer.Option()] = ExecutionEnvironment.FAKE,
     repo: Annotated[
         Path | None, typer.Option(help="Clean dedicated repository for Docker runs.")
@@ -371,6 +376,8 @@ def evaluate_command(
         raise typer.BadParameter("--repo is required for Docker execution")
     if executor == ExecutionEnvironment.FAKE and repo is not None:
         raise typer.BadParameter("--repo requires --executor docker")
+    if from_run is None and goal is None:
+        raise typer.BadParameter("--goal is required unless --from-run is provided")
     evaluation_id = evaluation_id or uuid4()
     execution = (
         configure_docker(
@@ -384,6 +391,41 @@ def evaluate_command(
         if repo
         else ExecutionConfig(runtime_root=runtime_root.resolve())
     )
+    source = None
+    source_plan = None
+    if from_run is not None:
+        if executor != ExecutionEnvironment.DOCKER or patch is not None:
+            raise typer.BadParameter(
+                "--from-run requires Docker and cannot be combined with --patch"
+            )
+        with repository_at(db) as source_repository:
+            source = source_repository.load(from_run)
+        source_plan = next(
+            (item for item in source.plans if item.id == source.active_plan_id), None
+        )
+        if (
+            source.status != RunStatus.COMPLETED
+            or source_plan is None
+            or source_plan.change_type != ChangeType.CONFIG_ONLY
+            or source_plan.configuration_overrides is None
+            or source.active_hypothesis_id != source_plan.hypothesis_id
+            or not source.baseline_experiment_id
+            or source.execution.baseline_repo_path != execution.baseline_repo_path
+            or source.execution.base_commit_sha != execution.base_commit_sha
+            or source.execution.image != execution.image
+            or source.execution.training_command != execution.training_command
+        ):
+            raise typer.BadParameter(
+                "Source must be completed CONFIG_ONLY run matching the goal, repository, "
+                "commit, image, and command"
+            )
+        execution = execution.model_copy(
+            update={"training_overrides": source_plan.configuration_overrides, "patch_diff": ""}
+        )
+        if goal is not None and goal != source.research_goal:
+            raise typer.BadParameter("--goal must match the source research goal")
+        goal = source.research_goal
+    assert goal is not None
     manifest_path = runtime_root / "evaluations" / f"{evaluation_id}.json"
     config = {
         "id": str(evaluation_id),
@@ -404,6 +446,14 @@ def evaluate_command(
         "base_commit_sha": execution.base_commit_sha,
         "timeout": timeout,
         "min_delta": min_delta,
+        "source_run_id": str(source.research_id) if source else None,
+        "source_hypothesis_id": str(source.active_hypothesis_id) if source else None,
+        "source_plan_id": str(source_plan.id) if source_plan else None,
+        "training_overrides": execution.training_overrides.model_dump(
+            mode="json", exclude_none=True
+        )
+        if execution.training_overrides
+        else None,
     }
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     if manifest_path.exists():
@@ -421,7 +471,15 @@ def evaluate_command(
         for seed, research_id in zip(seed_values, research_ids, strict=True):
             try:
                 state = repository.load(research_id)
-                if state.research_goal != goal or state.simulation.seed != seed:
+                if (
+                    state.research_goal != goal
+                    or state.simulation.seed != seed
+                    or state.proposal_source_run_id != (source.research_id if source else None)
+                    or state.proposal_source_hypothesis_id
+                    != (source.active_hypothesis_id if source else None)
+                    or state.proposal_source_plan_id != (source_plan.id if source_plan else None)
+                    or state.execution.training_overrides != execution.training_overrides
+                ):
                     raise typer.BadParameter(
                         f"Seed run {research_id} conflicts with its evaluation"
                     )
@@ -433,6 +491,11 @@ def evaluate_command(
                         simulation=scenario.model_copy(update={"seed": seed}),
                         baseline=Baseline(min_delta=min_delta),
                         execution=execution,
+                        proposal_source_run_id=source.research_id if source else None,
+                        proposal_source_hypothesis_id=(
+                            source.active_hypothesis_id if source else None
+                        ),
+                        proposal_source_plan_id=source_plan.id if source_plan else None,
                     )
                 )
             if state.status not in {RunStatus.COMPLETED, RunStatus.FAILED}:
@@ -447,6 +510,10 @@ def evaluate_command(
     result["evaluation_id"] = str(evaluation_id)
     result["seeds"] = list(seed_values)
     result["seed_runs"] = [str(item) for item in research_ids]
+    result["source_run_id"] = str(source.research_id) if source else None
+    result["source_hypothesis_id"] = str(source.active_hypothesis_id) if source else None
+    result["source_plan_id"] = str(source_plan.id) if source_plan else None
+    result["training_overrides"] = config["training_overrides"]
     if executor == ExecutionEnvironment.FAKE:
         result["interpretation"] = (
             "Simulated control-flow check only; fake outcomes do not vary "

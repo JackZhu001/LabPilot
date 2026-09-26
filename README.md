@@ -10,7 +10,7 @@ decision to a measurable result.
 Literature → Evidence → Hypothesis → Experiment → Metric → Keep / Reject / Replan
 ```
 
-**Current scope: Phases 1–7 complete; Phase 8 is in progress with DeepSeek-guided multi-seed evaluation.** See the [Phase 8 results and remaining work](docs/phase8-report.md). Fake mode
+**Current scope: Phases 1–8 complete for the bounded MNIST workflow; Phase 9 targets additional datasets.** See the [Phase 8 results and Phase 9 TODO](docs/phase8-report.md). Fake mode
 preserves the fast offline fixtures. Agent mode uses a provider-independent typed
 interface with DeepSeek to inspect a bounded repository context, propose and plan a
 hypothesis, generate a validated patch when required, and explain the measured
@@ -745,7 +745,8 @@ BLOCKED at the retry cursor; invalid final structured output becomes FAILED.
 | 5 | arXiv and Semantic Scholar evidence grounding — complete |
 | **6** | Snapshot reports, observational benchmarks, and frontend integration — complete |
 | **7** | Resumable multi-seed evaluation runs and paired metric summaries — complete |
-| **8 (in progress)** | DeepSeek-proposed changes with multi-seed validation |
+| **8** | DeepSeek proposal handoff and multi-seed validation — complete |
+| 9 (next) | Second dataset, dataset-aware validation, and source-linked evaluation |
 
 ### Remaining work
 
@@ -753,9 +754,10 @@ BLOCKED at the retry cursor; invalid final structured output becomes FAILED.
 - [x] Add observational benchmark workflow (Phase 6).
 - [x] Add resumable multi-seed evaluation command (Phase 7, first increment).
 - [x] Validate the resumable Docker evaluator across 8 seeds and two dropout settings (Phase 7).
-- [x] Run a bounded live DeepSeek agent experiment and measure its proposed intervention (Phase 8, first increment).
-- [ ] Automate candidate handoff from DeepSeek planning into the resumable multi-seed evaluator.
-- [ ] Extend beyond this small MNIST training split and compare additional pre-defined changes.
+- [x] Run a bounded live DeepSeek experiment and hand its CONFIG_ONLY proposal into resumable multi-seed evaluation with source lineage (Phase 8).
+- [ ] Add a second dataset with explicit split and metric metadata (Phase 9).
+- [ ] Validate proposal overrides against dataset capabilities before training.
+- [ ] Run source-linked multi-seed evaluation on the second dataset before making broader claims.
 
 
 ## Reports and evaluation (Phase 6)
@@ -809,3 +811,20 @@ interventions, then checks proposed dropout settings over matching seeds. The AP
 is read from `DEEPSEEK_API_KEY`; `.env` is ignored by Git and must be loaded into the
 shell explicitly. Results, token use, failed attempts, and remaining work are recorded
 in [the Phase 8 report](docs/phase8-report.md).
+
+To evaluate a completed CONFIG_ONLY agent proposal without manually rebuilding its
+override, use its Research ID as `--from-run`. The source, baseline commit, image, and
+training command must match; pass the same Docker image identifier used by the source
+run so resumed evaluations stay reproducible.
+
+```bash
+labpilot evaluate --seeds 42,43,44 \
+  --executor docker --repo .labpilot/baselines/mnist-phase4 \
+  --image sha256:... --reuse-image --db .labpilot/phase8-deepseek/labpilot.sqlite3 \
+  --runtime-root .labpilot/phase9-evaluation --min-delta 0.001 \
+  --from-run RUN_ID
+```
+
+Phase 9 TODO: add a second dataset with explicit split and metric metadata, validate
+proposal overrides against dataset capabilities, and repeat the source-linked
+multi-seed comparison before drawing conclusions beyond MNIST.

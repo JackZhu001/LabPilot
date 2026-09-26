@@ -51,6 +51,7 @@ class ExecutionConfig(DomainModel):
     base_commit_sha: CommitSHA | None = None
     runtime_root: Path = Path(".labpilot")
     patch_diff: RawText = ""
+    training_overrides: TrainingOverrides | None = None
     training_command: tuple[Text, ...] = ("python", "train.py")
     image: Text = "labpilot-mnist:phase2"
     build_image: bool = True

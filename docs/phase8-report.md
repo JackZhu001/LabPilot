@@ -1,4 +1,4 @@
-# Phase 8 — DeepSeek-guided multi-seed evaluation (first increment)
+# Phase 8 — DeepSeek-guided multi-seed evaluation
 
 The roadmap had no Phase 8 definition. This increment connects the existing bounded
 DeepSeek agent to measured experiments, then evaluates two model-proposed dropout
@@ -68,9 +68,27 @@ quality or generalization.
   observed immutable Docker image ID. Repeated identical attempts do not create separate
   cohorts, and different dropout values cannot be pooled as one treatment.
 - The System page and bilingual README show Phase 8 progress.
-- Next: pass a validated DeepSeek configuration proposal directly into the resumable
-  evaluator, avoiding the current manual handoff; then repeat beyond this small MNIST
-  split and test pre-defined changes on additional datasets.
+- A completed CONFIG_ONLY proposal can now be handed directly to `labpilot evaluate
+  --from-run RUN_ID`. It validates source completion, proposal type, goal, repository,
+  commit, image, and command; candidate runs inherit the exact typed overrides while
+  baselines remain unmodified. The evaluation manifest, seed snapshots, and benchmark
+  summary retain source IDs and the applied settings.
+- End-to-end handoff evaluation: `8ad63c37-5f03-4364-92d1-dffd5f986038`, using the
+  saved DeepSeek run above and seeds 42–49. All eight seed runs completed; the saved
+  baselines had no override, every candidate recorded `dropout=0.3`, and every seed
+  retained the source Research, hypothesis, and plan IDs. The mean paired improvement
+  was `-0.0005625` with a sample standard deviation of `0.001898`; 2/8 seeds reached
+  KEEP. These reuse the existing MNIST seeds and are a workflow/reproducibility check,
+  not new independent evidence.
+
+## Phase 9 TODO: generalize beyond MNIST
+
+1. Add a second supported dataset and make dataset identity, data split, and metric
+   explicit in the experiment manifest.
+2. Add dataset-specific validation for proposal overrides so unsupported settings are
+   rejected before training.
+3. Repeat source-linked multi-seed evaluation on that dataset and report paired
+   outcomes alongside MNIST; keep model promotion gated on measured evidence.
 
 The failed setup and validation attempts are preserved in ignored local records under
 `.labpilot/phase8-deepseek/`. They produced no candidate metric included in the table.

@@ -66,7 +66,11 @@ labpilot benchmark --db .labpilot/labpilot.sqlite3 --format json > benchmark.jso
 
 ## 当前进度与边界
 
-Phase 1–7 已实现；Phase 8 正在推进 DeepSeek 提议与多种子验证的衔接。dropout 0.2 和 0.3 在各 8 个种子上的平均提升均为负值，目前没有稳定收益证据。详见 [Phase 7 实测记录](docs/phase7-report.md) 和 [Phase 8 DeepSeek 评估](docs/phase8-report.md)。截图为本地演示运行，MNIST 结果不能代表通用能力。
+Phase 1–8 的有限 MNIST 流程已实现；Phase 9 将扩展到其他数据集。Phase 8 已支持将 DeepSeek 的 CONFIG_ONLY 方案直接交给可续跑的多种子评估，并完成 8 个种子的端到端验证。dropout 0.2 和 0.3 在各 8 个种子上的平均提升均为负值，目前没有稳定收益证据。详见 [Phase 7 实测记录](docs/phase7-report.md) 和 [Phase 8 结果及 Phase 9 TODO](docs/phase8-report.md)。截图为本地演示运行，MNIST 结果不能代表通用能力。
+
+评估已完成的 DeepSeek 配置方案时，可通过 `labpilot evaluate --from-run RUN_ID` 直接复用，不必手动重建参数。来源运行、仓库提交、镜像标识和训练命令必须匹配；运行清单和报告会保留来源 ID 与候选配置。
+
+Phase 9 TODO：增加第二个数据集并明确记录数据划分和指标；按数据集能力校验方案参数；在该数据集上复跑来源可追溯的多种子对照，再讨论 MNIST 之外的结论。
 
 历史运行对比属于观察性统计，不证明文献策略的因果收益。项目是有边界的研究自动化系统，目前不应宣称已经实现递归自我改进（RSI）。
 
