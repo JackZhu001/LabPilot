@@ -2,9 +2,13 @@
 
 **自主机器学习研究与实验助手** · [English](README.md)
 
+[快速开始](README.md#setup) · [自定义研究流程](README.md#custom-research-workflow) · [Phase 9 报告](docs/phase9-report.md)
+
 从文献证据到可测量的实验结果：LabPilot 将假设、代码变更、隔离执行、指标与决策连接到同一份可恢复的研究状态。
 
-![LabPilot 中文研究工作台](docs/images/dashboard-zh.png)
+| 中文工作台 | English workbench | 研究报告 |
+| --- | --- | --- |
+| ![LabPilot 中文工作台](docs/images/dashboard-zh.png) | ![LabPilot research dashboard](docs/images/dashboard-en.png) | ![研究报告](docs/images/report-en.png) |
 
 ## 可以做什么
 
@@ -14,6 +18,10 @@
 - **确定性决策**：依据真实指标与阈值选择保留、拒绝或重新规划，支持最大化与最小化目标。
 - **报告与对比**：导出带版本和 SHA-256 指纹的 Markdown / JSON 报告，按记录的实验条件对比历史运行。
 - **双语工作台**：中英文切换、深浅主题、交互式 3D 模型、页面与卡片动效、全局动画暂停以及系统减少动态效果支持。
+
+### 自定义研究任务
+
+在 **New research** 页面填写主题，可上传最多 5 篇论文并指定干净的本地 Git baseline。启动前，LabPilot 会检查 baseline，并预览文献检索预算、实验上限、改动范围和优化指标。确认后启动 DeepSeek 研究运行，按指定的最大化或最小化指标执行隔离 Docker 实验。查看[前端本地启动说明](frontend/README.md)。
 
 研究目标、论文原文、代码、原始状态与导出快照保留原始语言。动画模型是视觉展示，不代表实时科研进度。
 

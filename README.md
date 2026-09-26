@@ -2,6 +2,8 @@
 
 **Autonomous ML Research & Experimentation Agent**
 
+[中文说明](README.zh-CN.md) · [Quick start](#setup) · [Research workflow](#custom-research-workflow) · [Phase 9 results](docs/phase9-report.md)
+
 LabPilot aims to make ML research reproducible, traceable, and bounded: every
 hypothesis should connect to evidence, every experiment to a hypothesis, and every
 decision to a measurable result.
@@ -21,8 +23,6 @@ selected hypothesis. Git, Docker, Optuna, and DecisionEngine retain execution au
 
 ## Explore the workbench
 
-[中文介绍](README.zh-CN.md) · [Quick start](#setup) · [Frontend setup](frontend/README.md) · [Phase 6 validation](docs/phase6-report.md) · [Phase 7 results](docs/phase7-report.md) · [Phase 8 results](docs/phase8-report.md) · [Phase 9 FashionMNIST results](docs/phase9-report.md)
-
 ![LabPilot research workbench in English](docs/images/dashboard-en.png)
 
 A local research workbench connected to saved SQLite runs: inspect experiments,
@@ -30,17 +30,12 @@ trace evidence, compare recorded conditions, and export reproducible reports.
 Switch between English and Chinese, light and dark themes, and enable or pause
 motion. The CSS 3D scene is decorative; experiment metrics come from saved records.
 
-<details>
-<summary>Chinese interface and report preview</summary>
+| English workbench | 中文工作台 | Research report |
+| --- | --- | --- |
+| ![LabPilot research dashboard](docs/images/dashboard-en.png) | ![LabPilot 中文工作台](docs/images/dashboard-zh.png) | ![Measured research report](docs/images/report-en.png) |
 
-![LabPilot 中文工作台](docs/images/dashboard-zh.png)
-
-![Research report with measured outcomes and resource usage](docs/images/report-en.png)
-
-Screenshots show existing local demonstration runs, including both simulated and
-Docker experiments. The MNIST result shown is a demonstration, not a general benchmark claim.
-
-</details>
+Screenshots show local demonstration runs, including simulated and Docker
+experiments. The MNIST result is illustrative, not a general benchmark claim.
 
 | Research workflow | Engineering guarantees | Workbench |
 | --- | --- | --- |
@@ -89,8 +84,17 @@ chatbot roles.
   Python syntax preflight before training.
 - CLI inspection, JSON export to stdout, and standard logging with research,
   hypothesis, study, trial, and experiment identifiers.
-- Read-only local HTTP API for live frontend run, experiment, HPO, evidence,
-  activity, state, and artifact data.
+- Local HTTP API for creating research runs and viewing run, experiment, HPO,
+  evidence, activity, state, and artifact data.
+
+## Custom research workflow
+
+The **New research** page accepts a research question, up to five source papers,
+and a clean local Git baseline. Before starting, LabPilot checks the baseline and
+previews the literature-search budget, experiment limit, allowed change scope,
+and objective metric. Confirm the plan to start a DeepSeek-backed run using the
+selected maximize/minimize metric; Docker executes the experiments in isolation.
+See [frontend setup](frontend/README.md) for running the workbench locally.
 
 Docker mode adds `ExecutionEnvironment`, `ExecutionStatus`, `ExperimentArtifact`,
 `GitMetadata`, `DockerMetadata`, `MetricReport`, and `ExecutionProvenance`. Supplied
@@ -431,8 +435,7 @@ Agent mode
 requires Docker. Use `status` to inspect persisted structured outputs and usage;
 ordinary `resume` starts at the next uncommitted logical role.
 
-To inspect persisted runs in the research dashboard, start the read-only API
-and frontend in separate terminals:
+Start the API and frontend in separate terminals to inspect or create research runs:
 
 ```bash
 uv run labpilot serve-api --db .labpilot/labpilot.sqlite3
@@ -442,6 +445,13 @@ cd frontend && npm install && npm run dev
 Open `http://localhost:5173`. The frontend proxies `/api` to the local API;
 set `VITE_LABPILOT_USE_MOCKS=true` for optional UI fixtures. See
 [`frontend/README.md`](frontend/README.md) for routes and data contracts.
+
+Choose **New research** in the dashboard to submit a topic, optionally upload up to
+five PDF/Markdown/text papers (5 MB total), and select a clean local Git baseline.
+Choose one to three research iterations and constrain proposed experiments to
+configuration-only or source-code changes. Leaving the baseline path blank uses the
+included MNIST example. Runs use DeepSeek and Docker, and execute in the background.
+Load `DEEPSEEK_API_KEY` into the API process environment.
 
 ## Development
 
