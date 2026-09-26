@@ -1,7 +1,8 @@
+import { useI18n } from "@/i18n";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, FileDown, FileText, XCircle } from "lucide-react";
 import { useRequest } from "@/hooks/useRequest";
-import { getExperiment } from "@/services/labpilot-api";
+import { artifactUrl, getExperiment } from "@/services/labpilot-api";
 import { formatRuntime, formatTimestamp, shortId } from "@/lib/utils";
 import {
   CopyButton,
@@ -19,7 +20,8 @@ import {
 } from "@/components/ui/badges";
 import { CodeDiff } from "@/components/ui/CodeDiff";
 
-function ArtifactRow({ name, path }: { name: string; path: string }) {
+function ArtifactRow({ name, path, url }: { name: string; path: string; url: string | null }) {
+  const { t } = useI18n();
   return (
     <li className="flex items-center justify-between gap-3 py-1.5 first:pt-0 last:pb-0">
       <div className="flex min-w-0 items-center gap-2">
@@ -28,32 +30,32 @@ function ArtifactRow({ name, path }: { name: string; path: string }) {
         <MonoValue truncate className="text-faint">{path}</MonoValue>
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <CopyButton value={path} label="artifact path" />
-        <button
-          type="button"
-          disabled
-          title="Artifact access requires the backend integration (planned)"
-          className="inline-flex items-center gap-1 rounded-[4px] border border-line px-1.5 py-0.5 text-[11px] font-medium text-faint"
+        <CopyButton value={path} label={t("artifact path")} />
+        <a
+          href={url ?? undefined}
+          aria-disabled={!url}
+          title={url ? `Download ${name}` : t("Downloads are unavailable in fixture mode")}
+          className="inline-flex items-center gap-1 rounded-[4px] border border-line px-1.5 py-0.5 text-[11px] font-medium text-faint aria-disabled:pointer-events-none aria-disabled:opacity-50"
         >
           <FileDown className="size-3" aria-hidden="true" />
-          Download
-        </button>
+          {t("Download")}</a>
       </div>
     </li>
   );
 }
 
 export default function ExperimentDetailPage() {
+  const { t, locale } = useI18n();
   const { researchId = "", experimentId = "" } = useParams();
   const { data, loading, error } = useRequest(() => getExperiment(experimentId), experimentId);
 
   if (loading) {
     return (
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Summary">
+        <Panel title={t("Summary")}>
           <div className="h-40 animate-pulse rounded bg-surface-3" />
         </Panel>
-        <Panel title="Provenance">
+        <Panel title={t("Provenance")}>
           <div className="h-40 animate-pulse rounded bg-surface-3" />
         </Panel>
       </div>
@@ -62,15 +64,14 @@ export default function ExperimentDetailPage() {
   if (error || !data) {
     return (
       <EmptyState
-        title="Experiment not found"
+        title={t("Experiment not found")}
         description={`No experiment with ID ${experimentId} in this research run.`}
         action={
           <Link
             to={`/runs/${researchId}/experiments`}
             className="text-[13px] font-medium text-accent-ink hover:underline"
           >
-            Back to experiments
-          </Link>
+            {t("Back to experiments")}</Link>
         }
       />
     );
@@ -87,8 +88,7 @@ export default function ExperimentDetailPage() {
           className="mb-2 inline-flex items-center gap-1 text-xs font-medium text-muted transition-colors hover:text-ink"
         >
           <ArrowLeft className="size-3.5" aria-hidden="true" />
-          All experiments
-        </Link>
+          {t("All experiments")}</Link>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="mr-auto font-mono text-lg font-semibold text-ink">
             {experiment.id.slice(0, 18)}…
@@ -99,12 +99,12 @@ export default function ExperimentDetailPage() {
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-muted">
           <span className="flex items-center gap-1.5">
-            <span className="text-faint">Experiment ID</span>
+            <span className="text-faint">{t("Experiment ID")}</span>
             <MonoValue>{shortId(experiment.id, 12)}</MonoValue>
-            <CopyButton value={experiment.id} label="experiment ID" />
+            <CopyButton value={experiment.id} label={t("experiment ID")} />
           </span>
           <span className="text-faint">
-            Sequence <MonoValue>#{experiment.sequence}</MonoValue>
+            {t("Sequence")}<MonoValue>#{experiment.sequence}</MonoValue>
           </span>
           <span>
             <Link
@@ -121,21 +121,20 @@ export default function ExperimentDetailPage() {
         <div role="alert" className="rounded-panel border border-danger/30 bg-danger-soft/40 px-4 py-3">
           <p className="flex items-center gap-1.5 text-sm font-medium text-danger">
             <XCircle className="size-4" aria-hidden="true" />
-            Experiment failed
-          </p>
+            {t("Experiment failed")}</p>
           {experiment.error && <p className="mt-1 text-[13px] text-ink-2">{experiment.error}</p>}
         </div>
       )}
 
       {/* Summary */}
-      <section aria-label="Experiment summary">
-        <Panel title="Summary">
+      <section aria-label={t("Experiment summary")}>
+        <Panel title={t("Summary")}>
           <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[6px] border border-line bg-line sm:grid-cols-4">
             {[
-              { label: "Primary metric", value: experiment.metric_value?.toFixed(4) ?? "—" },
-              { label: "Metric name", value: experiment.config.metric_name },
-              { label: "Runtime", value: formatRuntime(experiment.runtime_seconds) },
-              { label: "Executor", value: experiment.executor },
+              { label: t("Primary metric"), value: experiment.metric_value?.toFixed(4) ?? "—" },
+              { label: t("Metric name"), value: experiment.config.metric_name },
+              { label: t("Runtime"), value: formatRuntime(experiment.runtime_seconds) },
+              { label: t("Executor"), value: experiment.executor },
             ].map((cell) => (
               <div key={cell.label} className="bg-surface px-3.5 py-3">
                 <p className="text-[11px] tracking-wide text-muted">{cell.label}</p>
@@ -159,13 +158,13 @@ export default function ExperimentDetailPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Configuration */}
-        <section aria-label="Configuration">
-          <Panel title="Configuration">
+        <section aria-label={t("Configuration")}>
+          <Panel title={t("Configuration")}>
             <KeyValue
               columns={2}
               items={[
-                { key: "seed", value: <span className="font-mono text-xs">{experiment.config.seed}</span> },
-                { key: "direction", value: experiment.config.direction },
+                { key: t("seed"), value: <span className="font-mono text-xs">{experiment.config.seed}</span> },
+                { key: t("direction"), value: experiment.config.direction },
                 ...Object.entries(experiment.config.parameters).map(([k, v]) => ({
                   key: k,
                   value: <span className="font-mono text-xs">{String(v)}</span>,
@@ -176,50 +175,48 @@ export default function ExperimentDetailPage() {
         </section>
 
         {/* Docker provenance */}
-        <section aria-label="Execution environment">
-          <Panel title="Execution environment">
+        <section aria-label={t("Execution environment")}>
+          <Panel title={t("Execution environment")}>
             {!prov ? (
               <p className="text-[13px] leading-relaxed text-muted">
-                Fake executor: no isolated execution provenance is recorded in fake mode. Real
-                provenance (Git worktree, Docker identity, artifacts) is captured in Docker mode.
-              </p>
+                {t("Fake executor: no isolated execution provenance is recorded in fake mode. Real provenance (Git worktree, Docker identity, artifacts) is captured in Docker mode.")}</p>
             ) : (
               <KeyValue
                 columns={2}
                 items={[
-                  { key: "Image", value: <span className="font-mono text-xs">{prov.docker.image}</span> },
+                  { key: t("Image"), value: <span className="font-mono text-xs">{prov.docker.image}</span> },
                   {
-                    key: "Image ID",
+                    key: t("Image ID"),
                     value: prov.docker.image_id ? (
                       <span className="inline-flex items-center gap-1">
                         <MonoValue truncate>{prov.docker.image_id.replace("sha256:", "").slice(0, 19)}…</MonoValue>
-                        <CopyButton value={prov.docker.image_id} label="image ID" />
+                        <CopyButton value={prov.docker.image_id} label={t("image ID")} />
                       </span>
                     ) : (
                       "—"
                     ),
                   },
                   {
-                    key: "Container ID",
+                    key: t("Container ID"),
                     value: prov.docker.container_id ? (
                       <span className="inline-flex items-center gap-1">
                         <MonoValue truncate>{prov.docker.container_id.slice(0, 12)}…</MonoValue>
-                        <CopyButton value={prov.docker.container_id} label="container ID" />
+                        <CopyButton value={prov.docker.container_id} label={t("container ID")} />
                       </span>
                     ) : (
                       "—"
                     ),
                   },
-                  { key: "Network mode", value: prov.docker.network },
-                  { key: "CPU limit", value: `${prov.docker.cpus}` },
-                  { key: "Memory limit", value: `${prov.docker.memory_mb} MiB` },
-                  { key: "Exit code", value: prov.exit_code === null ? "—" : String(prov.exit_code) },
-                  { key: "Execution status", value: prov.status },
-                  { key: "Started", value: formatTimestamp(prov.started_at) },
-                  { key: "Finished", value: formatTimestamp(prov.finished_at) },
-                  { key: "Total runtime", value: formatRuntime(prov.runtime_seconds) },
+                  { key: t("Network mode"), value: prov.docker.network },
+                  { key: t("CPU limit"), value: `${prov.docker.cpus}` },
+                  { key: t("Memory limit"), value: `${prov.docker.memory_mb} MiB` },
+                  { key: t("Exit code"), value: prov.exit_code === null ? "—" : String(prov.exit_code) },
+                  { key: t("Execution status"), value: prov.status },
+                  { key: t("Started"), value: formatTimestamp(prov.started_at, locale) },
+                  { key: t("Finished"), value: formatTimestamp(prov.finished_at, locale) },
+                  { key: t("Total runtime"), value: formatRuntime(prov.runtime_seconds) },
                   {
-                    key: "Training command",
+                    key: t("Training command"),
                     value: <span className="font-mono text-xs">{prov.training_command.join(" ")}</span>,
                   },
                 ]}
@@ -230,48 +227,47 @@ export default function ExperimentDetailPage() {
       </div>
 
       {/* Git provenance */}
-      <section aria-label="Git provenance">
-        <Panel title="Git provenance">
+      <section aria-label={t("Git provenance")}>
+        <Panel title={t("Git provenance")}>
           {!prov ? (
-            <p className="text-[13px] text-muted">No Git provenance (fake executor).</p>
+            <p className="text-[13px] text-muted">{t("No Git provenance (fake executor).")}</p>
           ) : (
             <div className="space-y-4">
               <KeyValue
                 columns={3}
                 items={[
-                  { key: "Base commit", value: <ShaValue sha={prov.git.base_commit_sha} /> },
-                  { key: "Baseline SHA after", value: <ShaValue sha={prov.git.baseline_sha_after ?? ""} /> },
+                  { key: t("Base commit"), value: <ShaValue sha={prov.git.base_commit_sha} /> },
+                  { key: t("Baseline SHA after"), value: <ShaValue sha={prov.git.baseline_sha_after ?? ""} /> },
                   {
-                    key: "Baseline integrity",
+                    key: t("Baseline integrity"),
                     value:
                       prov.git.baseline_clean_after === true ? (
                         <span className="inline-flex items-center gap-1 text-[13px] font-medium text-success">
                           <CheckCircle2 className="size-3.5" aria-hidden="true" />
-                          clean after experiment
-                        </span>
+                          {t("clean after experiment")}</span>
                       ) : (
-                        <span className="text-[13px] font-medium text-danger">dirty</span>
+                        <span className="text-[13px] font-medium text-danger">{t("dirty")}</span>
                       ),
                   },
                   {
-                    key: "Worktree",
+                    key: t("Worktree"),
                     value: <MonoValue truncate>{prov.git.worktree_identity}</MonoValue>,
                   },
                   {
-                    key: "Worktree path",
+                    key: t("Worktree path"),
                     value: <MonoValue truncate>{prov.git.worktree_path}</MonoValue>,
                   },
-                  { key: "Source hash (SHA-256)", value: prov.source_sha256 ? (
+                  { key: t("Source hash (SHA-256)"), value: prov.source_sha256 ? (
                     <span className="inline-flex items-center gap-1">
                       <MonoValue truncate>{prov.source_sha256.slice(0, 16)}…</MonoValue>
-                      <CopyButton value={prov.source_sha256} label="source hash" />
+                      <CopyButton value={prov.source_sha256} label={t("source hash")} />
                     </span>
                   ) : ("—") },
                 ]}
               />
               <div>
                 <p className="mb-2 text-xs font-medium text-muted">
-                  Experiment diff {prov.git.actual_git_diff ? "" : "(none — baseline run)"}
+                  {t("Experiment diff")}{" "}{prov.git.actual_git_diff ? "" : t("(none — baseline run)")}
                 </p>
                 <CodeDiff diff={prov.git.actual_git_diff} title="actual.diff" />
               </div>
@@ -282,15 +278,15 @@ export default function ExperimentDetailPage() {
 
       {/* Artifacts */}
       {prov && (
-        <section aria-label="Artifacts">
-          <Panel title="Artifacts">
+        <section aria-label={t("Artifacts")}>
+          <Panel title={t("Artifacts")}>
             <ul className="divide-y divide-line">
-              <ArtifactRow name="stdout.log" path={prov.artifacts.stdout_path} />
-              <ArtifactRow name="stderr.log" path={prov.artifacts.stderr_path} />
-              <ArtifactRow name="metrics.json" path={prov.artifacts.metrics_path} />
-              <ArtifactRow name="provenance.json" path={prov.artifacts.provenance_path} />
-              <ArtifactRow name="patch.diff" path={prov.artifacts.patch_path} />
-              <ArtifactRow name="actual.diff" path={prov.artifacts.actual_diff_path} />
+              <ArtifactRow name="stdout.log" path={prov.artifacts.stdout_path} url={artifactUrl(experiment.id, "stdout.log")} />
+              <ArtifactRow name="stderr.log" path={prov.artifacts.stderr_path} url={artifactUrl(experiment.id, "stderr.log")} />
+              <ArtifactRow name="metrics.json" path={prov.artifacts.metrics_path} url={artifactUrl(experiment.id, "metrics.json")} />
+              <ArtifactRow name="provenance.json" path={prov.artifacts.provenance_path} url={artifactUrl(experiment.id, "provenance.json")} />
+              <ArtifactRow name="patch.diff" path={prov.artifacts.patch_path} url={artifactUrl(experiment.id, "patch.diff")} />
+              <ArtifactRow name="actual.diff" path={prov.artifacts.actual_diff_path} url={artifactUrl(experiment.id, "actual.diff")} />
             </ul>
           </Panel>
         </section>

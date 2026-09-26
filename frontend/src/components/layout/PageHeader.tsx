@@ -16,12 +16,12 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <div className={cn("mb-5", className)}>
+    <div className={cn("mb-8", className)}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight text-ink">{title}</h1>
+          <h1 className="text-3xl font-medium tracking-tight text-ink">{title}</h1>
           {description && (
-            <p className="mt-1 max-w-[70ch] text-[13px] leading-relaxed text-muted">
+            <p className="mt-3 max-w-[70ch] text-sm leading-relaxed text-muted">
               {description}
             </p>
           )}

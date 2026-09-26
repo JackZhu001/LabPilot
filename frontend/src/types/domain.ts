@@ -6,7 +6,7 @@
  * OptimizationStudy, SearchSpace, Paper/Claim/Evidence/Hypothesis.
  */
 
-export type RunStatus = "READY" | "RUNNING" | "PAUSED" | "COMPLETED";
+export type RunStatus = "READY" | "RUNNING" | "PAUSED" | "COMPLETED" | "BLOCKED" | "FAILED";
 export type ResearchDecision = "KEEP" | "REJECT" | "REPLAN";
 export type ExperimentStatus = "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
 export type TrialStatus = "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "PRUNED";
@@ -18,6 +18,15 @@ export type MetricDirection = "MAXIMIZE" | "MINIMIZE";
 
 /** Graph steps, in loop order (Step enum in models/common.py). */
 export type Step =
+  | "inspect_repository"
+  | "plan_literature_queries"
+  | "retrieve_papers"
+  | "extract_claims"
+  | "synthesize_evidence"
+  | "generate_hypotheses"
+  | "plan_experiment"
+  | "generate_patch"
+  | "critique"
   | "literature"
   | "evidence"
   | "baseline"
@@ -40,6 +49,12 @@ export interface Baseline {
 }
 
 export interface ResearchBudget {
+  max_literature_queries?: number;
+  literature_queries?: number;
+  max_papers?: number;
+  papers?: number;
+  max_claims?: number;
+  claims?: number;
   max_iterations: number;
   max_experiments: number;
   max_failed_experiments: number;
@@ -166,8 +181,8 @@ export interface OptimizationStudy {
 
 export interface Trial {
   id: string;
-  study_id: string;
-  optuna_trial_number: number;
+  study_id: string | null;
+  optuna_trial_number: number | null;
   status: TrialStatus;
   parameters: Record<string, string | number | boolean>;
   primary_metric_value: number | null;
@@ -182,6 +197,12 @@ export interface Paper {
   url: string | null;
   published_at: string | null;
   source_provider: string;
+  abstract?: string | null;
+  doi?: string | null;
+  arxiv_id?: string | null;
+  venue?: string | null;
+  query_id?: string | null;
+  provider_references?: { provider: string; external_id: string | null; url: string | null }[];
 }
 
 export interface Claim {
@@ -189,6 +210,9 @@ export interface Claim {
   paper_id: string;
   statement: string;
   confidence: number;
+  claim_type?: string | null;
+  source_span?: string | null;
+  source_scope?: "ABSTRACT" | null;
 }
 
 export interface Evidence {
@@ -197,6 +221,10 @@ export interface Evidence {
   relation: EvidenceRelation;
   summary: string;
   confidence: number;
+  paper_id?: string | null;
+  target_hypothesis_id?: string | null;
+  source_span?: string | null;
+  applicability_notes?: string | null;
 }
 
 export interface Hypothesis {
@@ -207,6 +235,12 @@ export interface Hypothesis {
   confidence: number;
   falsification_criteria: string;
   status: "PROPOSED" | "ACCEPTED" | "REJECTED" | "REPLANNED";
+  evidence_ids?: string[];
+  supporting_evidence_ids?: string[];
+  contradicting_evidence_ids?: string[];
+  neutral_evidence_ids?: string[];
+  evidence_confidence?: number;
+  grounding_status?: "LITERATURE_GROUNDED" | "PARTIALLY_GROUNDED" | "REPOSITORY_ONLY";
 }
 
 export interface CodePatch {
@@ -286,4 +320,32 @@ export interface StudyDetail {
   run: ResearchRun;
   study: OptimizationStudy;
   trials: Trial[];
+}
+
+export interface RunEvaluation {
+  research_id: string; goal: string; revision: number; snapshot_sha256: string;
+  updated_at: string; status: RunStatus; decision: ResearchDecision | null;
+  executor: ExecutionEnvironment; strategy: string; metric_name: string; direction: MetricDirection;
+  baseline: number | null; best: number | null; improvement: number | null;
+  experiments: number; finished_experiments: number; successful_experiments: number;
+  tested_hypotheses: number; accepted_hypotheses: number;
+  attempted_patches: number; successful_patches: number;
+  runtime_seconds: number | null; elapsed_seconds: number; llm_calls: number; llm_tokens: number;
+  cost_usd: number | null; papers: number; claims: number; evidence: number; grounded_hypotheses: number;
+}
+export interface ResearchReport {
+  schema_version: number; summary: RunEvaluation; markdown: string; state: RawState; run: ResearchRun;
+}
+export interface BenchmarkStrategy {
+  strategy: string; runs: number; completed: number; measured_runs: number;
+  keep_rate: number | null; mean_improvement: number | null; std_improvement: number | null;
+  experiment_success_rate: number | null; hypothesis_acceptance_rate: number | null;
+  patch_execution_success_rate: number | null; llm_tokens: number; runtime_seconds: number | null;
+}
+export interface BenchmarkReport {
+  schema_version: number; runs: RunEvaluation[]; limitations: string[];
+  groups: { id: string; context: {
+    executor: string; metric_name: string; direction: string; base_commit: string | null;
+    repository: string; baseline: number | null; max_experiments: number; max_hpo_trials: number;
+  }; strategies: BenchmarkStrategy[] }[];
 }

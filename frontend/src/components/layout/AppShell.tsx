@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { useI18n } from "@/i18n";
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   BookOpen,
   ChevronLeft,
@@ -11,11 +12,17 @@ import {
   Microscope,
   Settings,
   X,
+  Sun,
+  Moon,
+  Languages,
+  Pause,
+  Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/primitives";
 
 function BrandMark({ collapsed }: { collapsed: boolean }) {
+  const { t } = useI18n();
   return (
     <span className="flex items-center gap-2.5">
       <span
@@ -36,8 +43,7 @@ function BrandMark({ collapsed }: { collapsed: boolean }) {
             LabPilot
           </span>
           <span className="block truncate text-[10.5px] leading-tight text-faint">
-            Autonomous ML Research Agent
-          </span>
+            {t("Autonomous ML Research Agent")}</span>
         </span>
       )}
     </span>
@@ -48,8 +54,8 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: Gauge },
   { to: "/runs", label: "Research Runs", icon: FlaskConical },
   { to: "/experiments", label: "Experiments", icon: Microscope },
-  { to: "/evidence", label: "Evidence", icon: BookOpen, phase: "P5" },
-  { to: "/reports", label: "Reports", icon: FileText, phase: "P6" },
+  { to: "/evidence", label: "Evidence", icon: BookOpen },
+  { to: "/reports", label: "Reports", icon: FileText },
 ];
 
 const BOTTOM_NAV = [
@@ -64,12 +70,13 @@ function SidebarNav({
   collapsed: boolean;
   onNavigate?: () => void;
 }) {
+  const { t } = useI18n();
   const link = (item: (typeof NAV)[number]) => (
     <NavLink
       key={item.to}
       to={item.to}
       onClick={onNavigate}
-      title={collapsed ? item.label : undefined}
+      title={collapsed ? t(item.label) : undefined}
       className={({ isActive }) =>
         cn(
           "flex items-center gap-2.5 rounded-[6px] px-2.5 py-1.5 text-[13px] font-medium transition-colors",
@@ -81,21 +88,17 @@ function SidebarNav({
       }
     >
       <item.icon className="size-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
-      {!collapsed && <span className="truncate">{item.label}</span>}
-      {!collapsed && item.phase && (
-        <span className="ml-auto rounded-[3px] border border-line-strong px-1 text-[10px] font-medium text-faint">
-          {item.phase}
-        </span>
-      )}
+      {!collapsed && <span className="truncate">{t(item.label)}</span>}
+
     </NavLink>
   );
 
   return (
     <>
-      <nav aria-label="Primary" className="space-y-0.5">
+      <nav aria-label={t("Primary")} className="space-y-0.5">
         {NAV.map((item) => link(item))}
       </nav>
-      <nav aria-label="System" className="mt-auto space-y-0.5">
+      <nav aria-label={t("System")} className="mt-auto space-y-0.5">
         {BOTTOM_NAV.map((item) => link(item))}
       </nav>
     </>
@@ -103,6 +106,22 @@ function SidebarNav({
 }
 
 export function AppShell() {
+  const { t, locale, setLocale } = useI18n();
+  const location = useLocation();
+  const [motion, setMotion] = useState(() => {
+    try { return localStorage.getItem("labpilot-motion") !== "off"; } catch { return true; }
+  });
+  useEffect(() => {
+    document.documentElement.dataset.motion = motion ? "on" : "off";
+    try { localStorage.setItem("labpilot-motion", motion ? "on" : "off"); } catch { /* Storage is optional. */ }
+  }, [motion]);
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem("labpilot-theme") ?? "dark"; } catch { return "dark"; }
+  });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem("labpilot-theme", theme); } catch { /* Storage is optional. */ }
+  }, [theme]);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -111,8 +130,8 @@ export function AppShell() {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden shrink-0 flex-col gap-4 border-r border-line bg-surface px-3 py-3.5 transition-[width] lg:flex",
-          collapsed ? "w-[56px]" : "w-[216px]",
+          "app-sidebar hidden shrink-0 flex-col gap-4 border-r border-line px-4 py-7 transition-[width] lg:flex",
+          collapsed ? "w-[72px]" : "w-[232px]",
         )}
       >
         <div className={cn("px-1", collapsed && "flex justify-center px-0")}>
@@ -122,20 +141,20 @@ export function AppShell() {
         <button
           type="button"
           onClick={() => setCollapsed((v) => !v)}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={collapsed ? t("Expand sidebar") : t("Collapse sidebar")}
           className={cn(
             "flex items-center gap-1.5 rounded-[6px] border border-line px-2 py-1.5 text-[11px] font-medium text-muted transition-colors hover:bg-surface-2 hover:text-ink",
             collapsed && "justify-center",
           )}
         >
           <ChevronLeft className={cn("size-3.5 transition-transform", collapsed && "rotate-180")} aria-hidden="true" />
-          {!collapsed && "Collapse"}
+          {!collapsed && t("Collapse")}
         </button>
       </aside>
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
+        <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label={t("Navigation")}>
           <div
             className="absolute inset-0 bg-ink/20"
             onClick={() => setMobileOpen(false)}
@@ -146,7 +165,7 @@ export function AppShell() {
               <BrandMark collapsed={false} />
               <button
                 type="button"
-                aria-label="Close navigation"
+                aria-label={t("Close navigation")}
                 onClick={() => setMobileOpen(false)}
                 className="rounded p-1 text-muted hover:bg-surface-2 hover:text-ink"
               >
@@ -160,27 +179,34 @@ export function AppShell() {
 
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-surface px-4 lg:px-6">
+        <header className="app-topbar flex h-16 shrink-0 items-center gap-3 border-b border-line px-5 lg:px-10">
           <button
             type="button"
-            aria-label="Open navigation"
+            aria-label={t("Open navigation")}
             onClick={() => setMobileOpen(true)}
             className="rounded p-1 text-muted hover:bg-surface-2 hover:text-ink lg:hidden"
           >
             <Menu className="size-4.5" />
           </button>
           <p className="truncate text-[13px] font-medium text-ink-2">
-            Research control plane
-          </p>
-          <div className="ml-auto flex items-center gap-2">
-            <Badge variant="outline" title="This frontend runs on typed fixture data; backend integration is planned">
-              fixture data
+            {t("Workspace / Research")}</p>
+          <div className="ml-auto flex items-center gap-1 sm:gap-3">
+            <button type="button" className="header-control" aria-label={locale === "zh" ? "Switch to English" : "切换为中文"} onClick={() => setLocale(locale === "zh" ? "en" : "zh")}>
+              <Languages size={16} /><span>{locale === "zh" ? "EN" : "中文"}</span>
+            </button>
+            <button type="button" className="header-control" aria-label={t(motion ? "Pause all animations" : "Enable animations")} aria-pressed={!motion} onClick={() => setMotion(!motion)}>
+              {motion ? <Pause size={16} /> : <Play size={16} />}
+            </button>
+            <button type="button" className="header-control" aria-label={t(theme === "dark" ? "Switch to light theme" : "Switch to dark theme")} onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+              {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
+            <Badge variant="outline" title={import.meta.env.VITE_LABPILOT_USE_MOCKS === "true" ? t("Typed fixture data") : t("SQLite research API")}>
+              {import.meta.env.VITE_LABPILOT_USE_MOCKS === "true" ? t("fixture data") : t("live data")}
             </Badge>
-            <span className="hidden font-mono text-[11px] text-faint sm:block">v0.2.0 · phase 2</span>
           </div>
         </header>
         <main className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1200px] px-4 py-5 lg:px-6 lg:py-6">
+          <div key={location.pathname} className="page-content mx-auto w-full max-w-[1440px] px-5 py-7 lg:px-10 lg:py-9">
             <Outlet />
           </div>
         </main>

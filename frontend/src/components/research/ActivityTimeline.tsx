@@ -1,3 +1,4 @@
+import { useI18n } from "@/i18n";
 import { Link } from "react-router-dom";
 import {
   CheckCircle2,
@@ -29,9 +30,10 @@ export function ActivityTimeline({
   events: ActivityEvent[];
   showRunLink?: boolean;
 }) {
+  const { t, locale } = useI18n();
   if (events.length === 0) {
     return (
-      <p className="text-[13px] text-muted">No activity recorded yet.</p>
+      <p className="text-[13px] text-muted">{t("No activity recorded yet.")}</p>
     );
   }
   return (
@@ -51,9 +53,9 @@ export function ActivityTimeline({
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                <p className="text-[13px] font-medium text-ink">{event.title}</p>
+                <p className="text-[13px] font-medium text-ink">{t(event.title)}</p>
                 <time className="font-mono text-[11px] text-faint" dateTime={event.at}>
-                  {formatTimestamp(event.at)}
+                  {formatTimestamp(event.at, locale)}
                 </time>
               </div>
               {event.detail && (
@@ -64,8 +66,7 @@ export function ActivityTimeline({
                   to={`/runs/${event.research_id}`}
                   className="mt-1 inline-block text-xs font-medium text-accent-ink underline-offset-2 hover:underline"
                 >
-                  View run
-                </Link>
+                  {t("View run")}</Link>
               )}
             </div>
           </li>

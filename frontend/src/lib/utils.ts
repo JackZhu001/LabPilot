@@ -40,7 +40,7 @@ export function shortId(id: string, length = 8): string {
   return `${id.slice(0, length)}…`;
 }
 
-const dateFmt = new Intl.DateTimeFormat("en", {
+const dateFormats = Object.fromEntries(["en", "zh"].map((locale) => [locale, new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en", {
   month: "short",
   day: "numeric",
   year: "numeric",
@@ -48,11 +48,11 @@ const dateFmt = new Intl.DateTimeFormat("en", {
   minute: "2-digit",
   timeZone: "UTC",
   hour12: false,
-});
+})]));
 
-export function formatTimestamp(iso: string | null | undefined): string {
+export function formatTimestamp(iso: string | null | undefined, locale: "en" | "zh" = "en"): string {
   if (!iso) return "—";
-  return `${dateFmt.format(new Date(iso))} UTC`;
+  return `${dateFormats[locale].format(new Date(iso))} UTC`;
 }
 
 export function formatClock(iso: string): string {

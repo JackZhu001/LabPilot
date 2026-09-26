@@ -1,11 +1,7 @@
 # LabPilot Frontend
 
-Research control plane UI for LabPilot — autonomous ML research and
-experimentation agent. This frontend is isolated from the Python backend and
-currently runs on **typed fixture data** that mirrors the real domain models
-(`src/labpilot/models/*.py`, `src/labpilot/hpo/models.py`), including the
-measured Phase 2 dropout experiment (research `7ba5ca38-…`, baseline 0.9255 →
-candidate 0.9270, delta +0.0015, decision KEEP).
+Research control plane UI for LabPilot. It reads persisted research runs from
+the Python API by default. Typed fixtures remain available for UI development.
 
 ## Stack
 
@@ -30,6 +26,17 @@ npm run smoke   # SSR render smoke check of every route
 npm run preview # serve the production build
 ```
 
+Start the API from the repository root, then the frontend in another terminal:
+
+```bash
+uv run labpilot serve-api --db .labpilot/labpilot.sqlite3
+cd frontend && npm run dev
+```
+
+Vite forwards `/api` to `http://127.0.0.1:8000`. Set `VITE_LABPILOT_API_URL`
+for another API address, or `VITE_LABPILOT_USE_MOCKS=true` to show fixtures
+without an API. The API is read-only; create and resume runs with the CLI.
+
 ## Architecture
 
 ```text
@@ -42,7 +49,7 @@ src/
 │   └── hpo/          TrialChart, TrialTable + SearchSpacePanel
 ├── hooks/            useRequest (async request state)
 ├── lib/              cn + formatters (metrics, deltas, runtimes, SHAs)
-├── mocks/            fixture data (real Phase 2 run + HPO preview + fake runs)
+├── mocks/            optional fixture data for UI development
 ├── pages/            route pages (dashboard, runs, run tabs, experiment, HPO, …)
 ├── services/         labpilot-api.ts — the single data-access boundary
 ├── types/            domain.ts — typed after the Python models
@@ -50,10 +57,9 @@ src/
 └── main.tsx
 ```
 
-**Data boundary:** components import only `services/labpilot-api.ts`. Fixtures
-live in `src/mocks/` and are imported by the service layer alone. When the
-backend exists, the service functions switch to HTTP fetches without touching
-UI components.
+**Data boundary:** components import only `services/labpilot-api.ts`. That
+service calls the Python API by default and uses `src/mocks/` only when the
+mock environment flag is set.
 
 ## Routes
 
@@ -62,16 +68,17 @@ UI components.
 | `/dashboard` | Current research, loop, recent runs, activity timeline |
 | `/runs` | Research run list |
 | `/runs/:researchId` | Run detail (tabs: Overview, Experiments, HPO, Evidence, State) |
-| `/runs/:researchId/experiments/:experimentId` | Experiment detail: config, Git/Docker provenance, diff, artifacts |
+| `/runs/:researchId/experiments/:experimentId` | Experiment detail: config, Git/Docker provenance, diff, downloadable artifacts |
 | `/runs/:researchId/hpo/:studyId` | Optuna study: best trial, trial chart, trial table, search space |
 | `/experiments` | All experiments across runs |
-| `/evidence` | Paper → Claim → Evidence preview (Phase 5 label) |
-| `/reports` | Placeholder (Phase 6 label) |
+| `/evidence` | Paper → Claim → Evidence across persisted runs |
+| `/reports` | Saved research reports and cohort benchmark comparison |
+| `/reports/:researchId` | Report preview with Markdown / JSON export |
 | `/system`, `/settings` | Runtime facts, preferences |
 
-## Backend integration points
+## Backend data routes
 
-The future backend replaces `src/services/labpilot-api.ts` only:
+The read-only API serves:
 
 - `getRuns()` → list of run summaries (ResearchState metadata)
 - `getAllRuns()` / `getRun(id)` → full ResearchState
@@ -79,15 +86,29 @@ The future backend replaces `src/services/labpilot-api.ts` only:
 - `getStudy(id)` → OptimizationStudy + trials
 - `getRawState(id)` → serialized ResearchState JSON
 - `getActivity(limit)` → run event feed
+- `artifactUrl(experimentId, name)` → an allowlisted artifact download
 
-Every function is async and already returns the shapes the UI consumes;
-swap the fixture resolution for `fetch` calls and no component changes.
+The API adapts the existing SQLite `ResearchState` to these UI shapes.
 
-## Fixtures and honesty
+## Optional fixtures
 
 - The dropout KEEP run uses **real Phase 2 measured values** (metrics, SHAs,
   image IDs, runtimes) from `docs/phase2-report.md`.
-- The HPO study fixture is illustrative (Phase 3 backend in development) and
-  the study page says so explicitly.
+- The HPO study fixture is illustrative; live HPO data comes from SQLite.
 - Fake-executor runs mirror the documented Phase 1 scenarios.
-- Download/Open artifact actions are disabled, not faked.
+- Artifact downloads are live with the API; fixture mode disables them.
+
+
+The graphite/lime interface includes a CSS 3D research model on the dashboard.
+Motion can be paused and respects `prefers-reduced-motion`; the header toggles a
+persisted light/dark theme. Reports and benchmark comparison require the live API.
+The HPO chart is loaded when its route is opened, keeping it out of the initial bundle.
+
+### Language and motion
+
+The header switches English / 简体中文 and persists the choice in localStorage.
+On first use it follows the browser language. UI labels and dates are localized;
+research content, code, raw state and report exports retain their original text.
+The motion toggle pauses animations globally; the 3D model has its own pause control.
+Both respect the OS reduced-motion preference. `npm run smoke` checks translation
+fallback/interpolation and renders the route tree, including the lazy HPO route.

@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useParams } from "react-router-dom";
+import { useI18n } from "@/i18n";
+import { Link, NavLink, Outlet, useParams } from "react-router-dom";
 import { useRequest } from "@/hooks/useRequest";
 import { getRun } from "@/services/labpilot-api";
 import { cn, formatTimestamp } from "@/lib/utils";
@@ -14,6 +15,7 @@ const TABS = [
 ];
 
 export default function RunLayout() {
+  const { t, locale } = useI18n();
   const { researchId = "" } = useParams();
   const { data: run, loading, error } = useRequest(() => getRun(researchId), researchId);
 
@@ -27,7 +29,7 @@ export default function RunLayout() {
   if (error || !run) {
     return (
       <EmptyState
-        title="Research run not found"
+        title={t("Research run not found")}
         description={`No research run exists with ID ${researchId}. It may have been created in a different LabPilot database.`}
       />
     );
@@ -40,39 +42,40 @@ export default function RunLayout() {
           <h1 className="mr-auto max-w-[70ch] text-xl font-semibold tracking-tight text-ink">
             {run.goal}
           </h1>
+          <Link to={`/reports/${researchId}`} className="secondary-button">{t("View report")}</Link>
           <RunStatusBadge status={run.status} />
           {run.decision ? <DecisionBadge decision={run.decision} /> : <DecisionPendingBadge />}
         </div>
         <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-muted">
           <span className="flex items-center gap-1.5">
-            <span className="text-faint">Research ID</span>
+            <span className="text-faint">{t("Research ID")}</span>
             <MonoValue>{run.research_id.slice(0, 13)}…</MonoValue>
-            <CopyButton value={run.research_id} label="research ID" />
+            <CopyButton value={run.research_id} label={t("research ID")} />
           </span>
           <span>
-            <span className="text-faint">Executor </span>
+            <span className="text-faint">{t("Executor")}</span>
             <MonoValue>{run.executor}</MonoValue>
           </span>
           <span>
-            <span className="text-faint">Iteration </span>
+            <span className="text-faint">{t("Iteration")}</span>
             <MonoValue>{run.iteration}</MonoValue>
           </span>
           <span>
-            <span className="text-faint">Revision </span>
+            <span className="text-faint">{t("Revision")}</span>
             <MonoValue>{run.revision}</MonoValue>
           </span>
           <span className="hidden sm:inline">
-            <span className="text-faint">Created </span>
-            {formatTimestamp(run.created_at)}
+            <span className="text-faint">{t("Created")}</span>
+            {formatTimestamp(run.created_at, locale)}
           </span>
           <span>
-            <span className="text-faint">Updated </span>
-            {formatTimestamp(run.updated_at)}
+            <span className="text-faint">{t("Updated")}</span>
+            {formatTimestamp(run.updated_at, locale)}
           </span>
         </div>
       </header>
 
-      <nav aria-label="Run sections" className="mb-4 flex gap-1 border-b border-line">
+      <nav aria-label={t("Run sections")} className="mb-4 flex gap-1 overflow-x-auto border-b border-line">
         {TABS.map((tab) => (
           <NavLink
             key={tab.to}
@@ -87,7 +90,7 @@ export default function RunLayout() {
               )
             }
           >
-            {tab.label}
+            {t(tab.label)}
           </NavLink>
         ))}
       </nav>

@@ -1,3 +1,4 @@
+import { useI18n } from "@/i18n";
 import { Link } from "react-router-dom";
 import { useRequest } from "@/hooks/useRequest";
 import { getExperiments, getRuns } from "@/services/labpilot-api";
@@ -7,6 +8,7 @@ import { ExperimentTable } from "@/components/research/ExperimentTable";
 
 /** All experiments across research runs. */
 export default function AllExperimentsPage() {
+  const { t } = useI18n();
   const { data: experiments, loading, error } = useRequest(() => getExperiments(), "experiments");
   const { data: runs } = useRequest(() => getRuns(), "runs");
 
@@ -15,24 +17,23 @@ export default function AllExperimentsPage() {
   return (
     <>
       <PageHeader
-        title="Experiments"
-        description="Every isolated execution across runs, with its measured metric, provenance, and decision outcome."
+        title={t("Experiments")}
+        description={t("Every isolated execution across runs, with its measured metric, provenance, and decision outcome.")}
       />
       {loading ? (
         <TableSkeleton rows={6} />
       ) : error || !experiments ? (
         <EmptyState
-          title="Experiments unavailable"
-          description={error?.message ?? "Experiments could not be loaded."}
+          title={t("Experiments unavailable")}
+          description={error?.message ?? t("Experiments could not be loaded.")}
         />
       ) : experiments.length === 0 ? (
         <EmptyState
-          title="No experiments yet"
-          description="Experiments appear here once a research loop reaches the experiment step."
+          title={t("No experiments yet")}
+          description={t("Experiments appear here once a research loop reaches the experiment step.")}
           action={
             <Link to="/runs" className="text-[13px] font-medium text-accent-ink hover:underline">
-              View research runs
-            </Link>
+              {t("View research runs")}</Link>
           }
         />
       ) : (

@@ -8,11 +8,11 @@ import RunOverviewPage from "@/pages/run/RunOverviewPage";
 import RunExperimentsPage from "@/pages/run/RunExperimentsPage";
 import ExperimentDetailPage from "@/pages/run/ExperimentDetailPage";
 import RunHpoPage from "@/pages/run/RunHpoPage";
-import StudyPage from "@/pages/run/StudyPage";
 import RunEvidencePage from "@/pages/run/RunEvidencePage";
 import RunStatePage from "@/pages/run/RunStatePage";
 import AllExperimentsPage from "@/pages/AllExperimentsPage";
 import EvidencePreviewPage from "@/pages/EvidencePreviewPage";
+import ReportDetailPage from "@/pages/ReportDetailPage";
 import ReportsPage from "@/pages/ReportsPage";
 import SystemPage from "@/pages/SystemPage";
 import SettingsPage from "@/pages/SettingsPage";
@@ -34,7 +34,7 @@ export const routes: RouteObject[] = [
           { path: "experiments", element: <RunExperimentsPage /> },
           { path: "experiments/:experimentId", element: <ExperimentDetailPage /> },
           { path: "hpo", element: <RunHpoPage /> },
-          { path: "hpo/:studyId", element: <StudyPage /> },
+          { path: "hpo/:studyId", lazy: async () => ({ Component: (await import("@/pages/run/StudyPage")).default }) },
           { path: "evidence", element: <RunEvidencePage /> },
           { path: "state", element: <RunStatePage /> },
         ],
@@ -42,6 +42,7 @@ export const routes: RouteObject[] = [
       { path: "experiments", element: <AllExperimentsPage /> },
       { path: "evidence", element: <EvidencePreviewPage /> },
       { path: "reports", element: <ReportsPage /> },
+      { path: "reports/:researchId", element: <ReportDetailPage /> },
       { path: "system", element: <SystemPage /> },
       { path: "settings", element: <SettingsPage /> },
       { path: "*", element: <NotFoundPage /> },

@@ -1,7 +1,9 @@
+import { useI18n } from "@/i18n";
 import {
   CartesianGrid,
   ComposedChart,
   ReferenceLine,
+  ResponsiveContainer,
   Scatter,
   XAxis,
   YAxis,
@@ -18,11 +20,8 @@ export function TrialChart({
   trials: Trial[];
   baselineValue: number;
 }) {
-  const best = trials.reduce<Trial | null>((acc, t) => {
-    if (t.status !== "SUCCEEDED" || t.primary_metric_value === null) return acc;
-    if (!acc || (t.primary_metric_value ?? 0) > (acc.primary_metric_value ?? 0)) return t;
-    return acc;
-  }, null);
+  const { t } = useI18n();
+  const best = trials.find((t) => t.id === study.best_trial_id);
 
   const data = trials.map((t) => ({
     n: t.optuna_trial_number,
@@ -40,6 +39,7 @@ export function TrialChart({
 
   return (
     <div className="h-[240px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
       <ComposedChart
         data={succeeded}
         margin={{ top: 8, right: 12, bottom: 0, left: 4 }}
@@ -50,12 +50,12 @@ export function TrialChart({
           dataKey="n"
           type="number"
           domain={[0, study.max_trials - 1]}
-          ticks={data.map((d) => d.n)}
+          ticks={succeeded.map((d) => d.n).filter((n): n is number => n !== null)}
           tick={{ fontSize: 11, fontFamily: "var(--font-mono)", fill: "var(--color-muted)" }}
           stroke="var(--color-line-strong)"
           tickLine={false}
           label={{
-            value: "Trial number",
+            value: t("Trial number"),
             position: "insideBottomRight",
             offset: -2,
             fontSize: 11,
@@ -97,11 +97,10 @@ export function TrialChart({
           shape="circle"
         />
       </ComposedChart>
+      </ResponsiveContainer>
       <p className="mt-1 text-[11px] leading-relaxed text-faint">
-        Blue point = completed trial. Large ring = best trial (
-        {best ? `trial ${best.optuna_trial_number}, ${best.primary_metric_value?.toFixed(4)}` : "—"}
-        ). Dashed line = measured baseline. Failed and pruned trials plot no metric.
-      </p>
+        {t("Blue point = completed trial. Large ring = best trial (")}{" "}{best ? `trial ${best.optuna_trial_number}, ${best.primary_metric_value?.toFixed(4)}` : "—"}
+        {t("). Dashed line = measured baseline. Failed and pruned trials plot no metric.")}</p>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { useI18n } from "@/i18n";
 import type { OptimizationStudy, SearchParameter, Trial } from "@/types/domain";
 import { cn, formatRuntime } from "@/lib/utils";
 import { TrialStatusBadge } from "@/components/ui/badges";
@@ -68,52 +69,52 @@ export function TrialTable({
   trials: Trial[];
   baselineValue: number;
 }) {
+  const { t } = useI18n();
   const params = study.search_space.map((p) => p.name);
   return (
     <div className="overflow-x-auto rounded-[6px] border border-line bg-surface">
       <table className="w-full min-w-[720px] border-collapse">
         <thead>
           <tr>
-            {th("Trial")}
-            {th("Status")}
-            {th("Metric")}
-            {th("Δ vs baseline")}
-            {th("Runtime", "text-right")}
+            {th(t("Trial"))}
+            {th(t("Status"))}
+            {th(t("Metric"))}
+            {th(t("Δ vs baseline"))}
+            {th(t("Runtime"), "text-right")}
             {params.map((p) => th(p, "text-right"))}
           </tr>
         </thead>
         <tbody>
-          {trials.map((t) => {
+          {trials.map((trial) => {
             const delta =
-              t.primary_metric_value === null ? null : t.primary_metric_value - baselineValue;
+              trial.primary_metric_value === null ? null : (trial.primary_metric_value - baselineValue) * (study.direction === "MAXIMIZE" ? 1 : -1);
             return (
-              <tr key={t.id} className="hover:bg-surface-2">
+              <tr key={trial.id} className="hover:bg-surface-2">
                 <td className="border-b border-line/70 px-3 py-2 font-mono text-xs font-medium text-ink">
-                  {t.optuna_trial_number}
-                  {study.best_trial_id === t.id && (
+                  {trial.optuna_trial_number}
+                  {study.best_trial_id === trial.id && (
                     <span className="ml-1.5 rounded-[3px] bg-accent-soft px-1 text-[10px] font-semibold text-accent-ink">
-                      BEST
-                    </span>
+                      {t("BEST")}</span>
                   )}
                 </td>
                 <td className="border-b border-line/70 px-3 py-2">
-                  <TrialStatusBadge status={t.status} />
+                  <TrialStatusBadge status={trial.status} />
                 </td>
                 <td className="border-b border-line/70 px-3 py-2 font-mono text-xs">
-                  {t.primary_metric_value === null ? "—" : t.primary_metric_value.toFixed(4)}
+                  {trial.primary_metric_value === null ? "—" : trial.primary_metric_value.toFixed(4)}
                 </td>
                 <td className="border-b border-line/70 px-3 py-2">
                   <DeltaValue value={delta} />
                 </td>
                 <td className="border-b border-line/70 px-3 py-2 text-right font-mono text-xs text-ink-2">
-                  {formatRuntime(t.runtime_seconds)}
+                  {formatRuntime(trial.runtime_seconds)}
                 </td>
                 {params.map((p) => (
                   <td
                     key={p}
                     className="border-b border-line/70 px-3 py-2 text-right font-mono text-xs text-ink-2"
                   >
-                    {t.parameters[p] !== undefined ? String(t.parameters[p]) : "—"}
+                    {trial.parameters[p] !== undefined ? String(trial.parameters[p]) : "—"}
                   </td>
                 ))}
               </tr>

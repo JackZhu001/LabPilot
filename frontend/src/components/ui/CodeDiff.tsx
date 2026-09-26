@@ -1,3 +1,4 @@
+import { useI18n } from "@/i18n";
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,7 @@ export function CodeDiff({
   className?: string;
   title?: string;
 }) {
+  const { t } = useI18n();
   const lines = useMemo(() => parseDiff(diff), [diff]);
   const [expanded, setExpanded] = useState(false);
   const collapsible = lines.length > collapsedLines;
@@ -55,8 +57,7 @@ export function CodeDiff({
   if (!diff.trim()) {
     return (
       <p className={cn("text-[13px] text-muted", className)}>
-        No code changes were recorded for this execution.
-      </p>
+        {t("No code changes were recorded for this execution.")}</p>
     );
   }
 
@@ -85,7 +86,7 @@ export function CodeDiff({
           className="flex w-full items-center gap-1.5 border-t border-line bg-surface px-3 py-1.5 text-xs font-medium text-accent-ink transition-colors hover:bg-surface-2"
         >
           {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-          {expanded ? "Collapse diff" : `Show full diff (${lines.length} lines)`}
+          {expanded ? t("Collapse diff") : `Show full diff (${lines.length} lines)`}
         </button>
       )}
     </div>

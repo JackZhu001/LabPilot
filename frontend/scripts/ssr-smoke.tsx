@@ -3,6 +3,8 @@
  * resolution and render-path errors only. Run via:
  *   npx vite build --ssr scripts/ssr-smoke.tsx --outDir .smoke && node .smoke/ssr-smoke.js
  */
+import assert from "node:assert/strict";
+import { LocaleProvider, translate } from "../src/i18n";
 import { renderToString } from "react-dom/server";
 import { Outlet, createMemoryRouter, RouterProvider } from "react-router-dom";
 import { routes } from "../src/router";
@@ -53,11 +55,18 @@ const paths = [
   "/nonexistent",
 ];
 
+assert.equal(translate("zh", "Dashboard"), "工作台");
+assert.equal(translate("en", "Dashboard"), "Dashboard");
+assert.equal(translate("zh", "{count} selected runs", { count: 3 }), "已选择 3 个运行");
+assert.equal(translate("zh", "raw metric name"), "raw metric name");
 let failures = 0;
 for (const path of paths) {
   try {
     const router = createMemoryRouter(routes, { initialEntries: [path] });
-    const html = renderToString(<RouterProvider router={router} />);
+    if (!router.state.initialized) await new Promise<void>((resolve) => {
+      const unsubscribe = router.subscribe((state) => { if (state.initialized) { unsubscribe(); resolve(); } });
+    });
+    const html = renderToString(<LocaleProvider initialLocale="zh"><RouterProvider router={router} /></LocaleProvider>);
     const ok = html.length > 200;
     console.log(`${ok ? "ok " : "FAIL"} ${path} (${html.length} bytes)`);
     if (!ok) failures++;

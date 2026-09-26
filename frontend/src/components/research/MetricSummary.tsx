@@ -1,3 +1,4 @@
+import { useI18n } from "@/i18n";
 import { Info } from "lucide-react";
 import type { Baseline } from "@/types/domain";
 import { cn, deltaAsPercentagePoints, formatDelta, formatMetric } from "@/lib/utils";
@@ -45,20 +46,21 @@ export function MetricSummary({
   decision: string;
   className?: string;
 }) {
-  const delta = best === null ? null : best - baseline.value;
+  const { t } = useI18n();
+  const delta = best === null ? null : (best - baseline.value) * (baseline.direction === "MAXIMIZE" ? 1 : -1);
   const cells: { label: string; value: string; accent?: boolean }[] = [
     { label: `Baseline ${baseline.metric_name}`, value: formatMetric(baseline.value) },
-    { label: "Best measured", value: formatMetric(best) },
+    { label: t("Best measured"), value: formatMetric(best) },
     {
-      label: "Delta (absolute)",
+      label: t("Improvement (absolute)"),
       value: formatDelta(delta),
       accent: delta !== null && delta >= baseline.min_delta,
     },
     {
-      label: "Decision threshold",
+      label: t("Decision threshold"),
       value: `≥ ${baseline.min_delta}`,
     },
-    { label: "Decision", value: decision, accent: decision === "KEEP" },
+    { label: t("Decision"), value: decision, accent: decision === "KEEP" },
   ];
 
   return (

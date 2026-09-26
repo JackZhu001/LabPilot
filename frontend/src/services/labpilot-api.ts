@@ -8,11 +8,8 @@ import type {
 } from "@/types/domain";
 import { activityEvents, runs, summarize, toRawState } from "@/mocks";
 
-/**
- * Data-access boundary. Components consume only this module; when the real
- * backend exists, these functions switch to HTTP fetches without touching UI.
- * Fixture data is imported here and nowhere else.
- */
+const API = (import.meta.env.VITE_LABPILOT_API_URL ?? "/api").replace(/\/$/, "");
+const USE_MOCKS = import.meta.env.VITE_LABPILOT_USE_MOCKS === "true";
 
 export class NotFoundError extends Error {
   constructor(what: string) {
@@ -21,68 +18,102 @@ export class NotFoundError extends Error {
   }
 }
 
-const latency = (ms = 240) => new Promise((r) => setTimeout(r, ms));
-
-export async function getRuns(): Promise<RunSummary[]> {
-  await latency();
-  return runs.map(summarize).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+export function artifactUrl(experimentId: string, name: string): string | null {
+  return USE_MOCKS
+    ? null
+    : `${API}/experiments/${encodeURIComponent(experimentId)}/artifacts/${encodeURIComponent(name)}`;
 }
 
-/** Full run objects (for views that need literature or study detail). */
-export async function getAllRuns(): Promise<ResearchRun[]> {
-  await latency();
-  return [...runs].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+async function request<T>(path: string, label: string): Promise<T> {
+  const response = await fetch(`${API}${path}`);
+  if (response.status === 404) throw new NotFoundError(label);
+  if (!response.ok) throw new Error(`${label} request failed (${response.status})`);
+  return response.json() as Promise<T>;
+}
+
+export function getRuns(): Promise<RunSummary[]> {
+  return USE_MOCKS
+    ? Promise.resolve(runs.map(summarize).sort((a, b) => b.updated_at.localeCompare(a.updated_at)))
+    : request("/runs", "Runs");
+}
+
+export function getAllRuns(): Promise<ResearchRun[]> {
+  return USE_MOCKS
+    ? Promise.resolve([...runs].sort((a, b) => b.updated_at.localeCompare(a.updated_at)))
+    : request("/runs?full=1", "Runs");
 }
 
 export async function getFeaturedRun(): Promise<ResearchRun> {
-  await latency();
-  // Fixture order defines the featured demo run (real Phase 2 KEEP run).
-  return runs[0];
+  if (USE_MOCKS) return runs[0];
+  const [featured] = await getRuns();
+  if (!featured) throw new NotFoundError("Featured run");
+  return getRun(featured.research_id);
 }
 
-export async function getRun(researchId: string): Promise<ResearchRun> {
-  await latency();
-  const run = runs.find((r) => r.research_id === researchId);
-  if (!run) throw new NotFoundError(`Research run ${researchId}`);
-  return run;
+export function getRun(researchId: string): Promise<ResearchRun> {
+  if (!USE_MOCKS) return request(`/runs/${encodeURIComponent(researchId)}`, `Research run ${researchId}`);
+  const run = runs.find((item) => item.research_id === researchId);
+  return run ? Promise.resolve(run) : Promise.reject(new NotFoundError(`Research run ${researchId}`));
 }
 
 export async function getExperiments(researchId?: string): Promise<Experiment[]> {
-  await latency(180);
-  const source = researchId
-    ? runs.filter((r) => r.research_id === researchId)
-    : runs;
-  return source.flatMap((r) => r.experiments);
-}
-
-export async function getExperiment(experimentId: string): Promise<{ run: ResearchRun; experiment: Experiment }> {
-  await latency();
-  for (const run of runs) {
-    const experiment = run.experiments.find((e) => e.id === experimentId);
-    if (experiment) return { run, experiment };
+  if (USE_MOCKS) {
+    const source = researchId ? runs.filter((item) => item.research_id === researchId) : runs;
+    return source.flatMap((item) => item.experiments);
   }
-  throw new NotFoundError(`Experiment ${experimentId}`);
+  const query = researchId ? `?research_id=${encodeURIComponent(researchId)}` : "";
+  return request(`/experiments${query}`, "Experiments");
 }
 
-export async function getStudy(studyId: string): Promise<StudyDetail> {
-  await latency();
+export function getExperiment(experimentId: string): Promise<{ run: ResearchRun; experiment: Experiment }> {
+  if (!USE_MOCKS) return request(`/experiments/${encodeURIComponent(experimentId)}`, `Experiment ${experimentId}`);
   for (const run of runs) {
-    const study = run.studies.find((s) => s.id === studyId);
-    if (study) {
-      return { run, study, trials: run.trials.filter((t) => t.study_id === study.id) };
-    }
+    const experiment = run.experiments.find((item) => item.id === experimentId);
+    if (experiment) return Promise.resolve({ run, experiment });
   }
-  throw new NotFoundError(`Study ${studyId}`);
+  return Promise.reject(new NotFoundError(`Experiment ${experimentId}`));
 }
 
-export async function getRawState(researchId: string): Promise<RawState> {
-  await latency(160);
-  const run = runs.find((r) => r.research_id === researchId);
-  if (!run) throw new NotFoundError(`Research run ${researchId}`);
-  return toRawState(run);
+export function getStudy(studyId: string): Promise<StudyDetail> {
+  if (!USE_MOCKS) return request(`/studies/${encodeURIComponent(studyId)}`, `Study ${studyId}`);
+  for (const run of runs) {
+    const study = run.studies.find((item) => item.id === studyId);
+    if (study) return Promise.resolve({ run, study, trials: run.trials.filter((item) => item.study_id === study.id) });
+  }
+  return Promise.reject(new NotFoundError(`Study ${studyId}`));
 }
 
-export async function getActivity(limit = 12): Promise<ActivityEvent[]> {
-  await latency(160);
-  return [...activityEvents].sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit);
+export function getRawState(researchId: string): Promise<RawState> {
+  return USE_MOCKS
+    ? getRun(researchId).then(toRawState)
+    : request(`/runs/${encodeURIComponent(researchId)}/state`, `Research state ${researchId}`);
+}
+
+export function getActivity(limit = 12): Promise<ActivityEvent[]> {
+  return USE_MOCKS
+    ? Promise.resolve([...activityEvents].sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit))
+    : request(`/activity?limit=${limit}`, "Activity");
+}
+
+export function getReports(): Promise<import("@/types/domain").RunEvaluation[]> {
+  if (USE_MOCKS) return Promise.reject(new Error("Reports require the live API. Disable fixture mode to inspect saved runs."));
+  return request("/reports", "Reports");
+}
+export function getReport(id: string): Promise<import("@/types/domain").ResearchReport> {
+  if (USE_MOCKS) return Promise.reject(new Error("Reports require the live API."));
+  return request(`/reports/${encodeURIComponent(id)}`, "Report");
+}
+export function reportUrl(id: string, format: "markdown" | "json"): string {
+  return `${API}/reports/${encodeURIComponent(id)}?format=${format}`;
+}
+export function benchmarkUrl(ids: string[], format = "json"): string {
+  const params = new URLSearchParams({ format });
+  ids.forEach((id) => params.append("run_id", id));
+  return `${API}/benchmark?${params}`;
+}
+export function getBenchmark(ids: string[]): Promise<import("@/types/domain").BenchmarkReport> {
+  if (USE_MOCKS) return Promise.reject(new Error("Benchmarks require the live API."));
+  const params = new URLSearchParams();
+  ids.forEach((id) => params.append("run_id", id));
+  return request(`/benchmark?${params}`, "Benchmark");
 }

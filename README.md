@@ -10,7 +10,7 @@ decision to a measurable result.
 Literature → Evidence → Hypothesis → Experiment → Metric → Keep / Reject / Replan
 ```
 
-**Current scope: Phase 5 — scientific literature-grounded experimentation.** Fake mode
+**Current scope: Phases 1–6 implemented — evidence-grounded experiments, snapshot reports and observational benchmarks.** Fake mode
 preserves the fast offline fixtures. Agent mode uses a provider-independent typed
 interface with DeepSeek to inspect a bounded repository context, propose and plan a
 hypothesis, generate a validated patch when required, and explain the measured
@@ -18,6 +18,36 @@ result. An optional bounded literature path plans scholarly queries, retrieves a
 deduplicates arXiv/Semantic Scholar metadata, verifies claims against exact abstract
 spans, synthesizes explicit evidence relations, and keeps provenance through the
 selected hypothesis. Git, Docker, Optuna, and DecisionEngine retain execution authority.
+
+## Explore the workbench
+
+[中文介绍](README.zh-CN.md) · [Quick start](#setup) · [Frontend setup](frontend/README.md) · [Phase 6 validation](docs/phase6-report.md)
+
+![LabPilot research workbench in English](docs/images/dashboard-en.png)
+
+A local research workbench connected to saved SQLite runs: inspect experiments,
+trace evidence, compare recorded conditions, and export reproducible reports.
+Switch between English and Chinese, light and dark themes, and enable or pause
+motion. The CSS 3D scene is decorative; experiment metrics come from saved records.
+
+<details>
+<summary>Chinese interface and report preview</summary>
+
+![LabPilot 中文工作台](docs/images/dashboard-zh.png)
+
+![Research report with measured outcomes and resource usage](docs/images/report-en.png)
+
+Screenshots show existing local demonstration runs, including both simulated and
+Docker experiments. The MNIST result shown is a demonstration, not a general benchmark claim.
+
+</details>
+
+| Research workflow | Engineering guarantees | Workbench |
+| --- | --- | --- |
+| Literature → claims → evidence → hypotheses | Typed state and linked provenance | English / 简体中文 |
+| Validated patches and Docker experiments | Execution budgets and isolated worktrees | Experiment and HPO inspection |
+| Optuna hyperparameter search | SQLite checkpoints and resume | Evidence chains and source state |
+| KEEP / REJECT / REPLAN decisions | Deterministic metric thresholds | Markdown / JSON reports and cohort comparisons |
 
 ## Why this project exists
 
@@ -59,6 +89,8 @@ chatbot roles.
   Python syntax preflight before training.
 - CLI inspection, JSON export to stdout, and standard logging with research,
   hypothesis, study, trial, and experiment identifiers.
+- Read-only local HTTP API for live frontend run, experiment, HPO, evidence,
+  activity, state, and artifact data.
 
 Docker mode adds `ExecutionEnvironment`, `ExecutionStatus`, `ExperimentArtifact`,
 `GitMetadata`, `DockerMetadata`, `MetricReport`, and `ExecutionProvenance`. Supplied
@@ -293,7 +325,8 @@ repository inspection and patch validation, plus offline and live DeepSeek tests
 Existing schema-version-1 snapshots remain readable because extensions have
 compatible defaults. No database migration was needed. Optuna uses its own scoped
 database for sampler state; it does not replace the LabPilot checkpoint repository.
-Literature search and retrieval remain deferred to Phase 5.
+Phase 5 literature search and retrieval are implemented; see
+[`docs/phase5-report.md`](docs/phase5-report.md).
 
 ## Setup
 
@@ -395,6 +428,18 @@ CLI arguments or stored in state, SQLite, prompts, artifacts, reports, or logs.
 `DEEPSEEK_BASE_URL` and `DEEPSEEK_MODEL` default to the values above. Agent mode
 requires Docker. Use `status` to inspect persisted structured outputs and usage;
 ordinary `resume` starts at the next uncommitted logical role.
+
+To inspect persisted runs in the research dashboard, start the read-only API
+and frontend in separate terminals:
+
+```bash
+uv run labpilot serve-api --db .labpilot/labpilot.sqlite3
+cd frontend && npm install && npm run dev
+```
+
+Open `http://localhost:5173`. The frontend proxies `/api` to the local API;
+set `VITE_LABPILOT_USE_MOCKS=true` for optional UI fixtures. See
+[`frontend/README.md`](frontend/README.md) for routes and data contracts.
 
 ## Development
 
@@ -671,8 +716,8 @@ BLOCKED at the retry cursor; invalid final structured output becomes FAILED.
 
 ## Limitations
 
-- Experiment execution, metrics, inner-loop HPO, and opt-in DeepSeek outer-loop
-  proposals are real. Literature inputs remain deterministic fixtures.
+- Experiment execution, metrics, inner-loop HPO, opt-in DeepSeek outer-loop
+  proposals, and bounded arXiv/Semantic Scholar literature retrieval are real.
 - One local executor per run; no leases, distributed scheduling, or automatic
   reconciliation after a process crash during active Docker execution.
 - Worktrees and containers are cleaned up normally, but cleanup failures can leave
@@ -682,7 +727,7 @@ BLOCKED at the retry cursor; invalid final structured output becomes FAILED.
 - Dockerfiles, images, repositories, and patches are trusted local inputs. Docker
   isolation here is not a complete defense against intentionally hostile code.
 - Schema extensions are backward-compatible; migration tooling remains deferred.
-- No real literature APIs, MLflow, backend web API, distributed execution, paper
+- No MLflow, distributed execution, paper
   writing, or vector database.
 - The current HPO implementation is sequential and supports final metrics only.
   It has no pruning, executor leases, parallel workers, or active-container recovery.
@@ -694,18 +739,35 @@ BLOCKED at the retry cursor; invalid final structured output becomes FAILED.
 | 1 | Typed state, deterministic orchestration, SQLite checkpoint/resume |
 | 2 | Git worktrees, supplied patches, Docker execution, real MNIST metrics |
 | 3 | Typed, persisted, budgeted Optuna HPO through Docker trials |
-| **4 (current)** | Structured DeepSeek outer loop and validated patch planning |
-| 5 | arXiv and Semantic Scholar evidence grounding |
-| 6 | Benchmarks and evaluation |
+| 4 | Structured DeepSeek outer loop and validated patch planning |
+| 5 | arXiv and Semantic Scholar evidence grounding — complete |
+| **6** | Snapshot reports, observational benchmarks, evaluation, and frontend integration — complete |
 
-### Exact Phase 5 TODOs (not implemented)
+### Remaining work
 
-- [ ] Add arXiv and Semantic Scholar providers behind typed interfaces.
-- [ ] Persist normalized paper identity, metadata, source URL, and retrieval provenance.
-- [ ] Extract schema-validated claims with exact source spans.
-- [ ] Classify SUPPORT, CONTRADICT, and NEUTRAL evidence relations.
-- [ ] Deduplicate papers and claims across providers and research iterations.
-- [ ] Rank evidence by relevance, quality, recency, and contradiction coverage.
-- [ ] Feed cited evidence packages into hypothesis generation without changing metric authority.
-- [ ] Distinguish repository/history hypotheses from literature-grounded hypotheses in policy and UI.
-- [ ] Add offline provider fixtures and opt-in network integration tests.
+- [x] Generate reproducible reports from persisted results and provenance (Phase 6).
+- [x] Add benchmark and evaluation workflows (Phase 6).
+
+
+## Reports and evaluation (Phase 6)
+
+`labpilot report RUN_ID --db PATH --format markdown` exports a deterministic research
+report to stdout. Use `--format json` for its complete versioned state and SHA-256
+snapshot fingerprint. Redirect stdout to retain an export. Reports include hypotheses,
+evidence, configurations, seeds, patches, trials, decisions and execution provenance;
+retain referenced artifact files, datasets and Docker images separately.
+
+`labpilot benchmark --db PATH --db OTHER_PATH --format markdown` compares saved runs
+across databases. Repeat `--run-id UUID` to select runs; JSON is the default format.
+Exact duplicate snapshots are counted once; conflicting revisions are rejected.
+The comparison groups recorded execution conditions and budgets, separates simulations,
+and excludes incomplete/unmeasured runs from improvement statistics. Positive improvement
+means better for both maximize and minimize objectives. This is observational evaluation,
+not a controlled ablation or a causal estimate of literature grounding. Dollar cost is
+unknown; recorded tokens and execution time are shown instead.
+
+Start `labpilot serve-api --db PATH`, then the frontend. `/reports` provides run selection,
+cohort comparison and exports; `/reports/RUN_ID` previews a saved report. The dashboard
+includes a CSS 3D research model with pause control, reduced-motion support and persistent
+light/dark themes. No additional frontend dependencies are required.
+See [Phase 6 validation](docs/phase6-report.md).

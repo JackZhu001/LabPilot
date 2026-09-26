@@ -1,3 +1,4 @@
+import { useI18n } from "@/i18n";
 import type { ResearchBudget } from "@/types/domain";
 import { cn } from "@/lib/utils";
 
@@ -20,19 +21,20 @@ function Bar({ used, max, tone }: { used: number; max: number; tone: string }) {
 
 /** Deterministic budget counters — hard limits on autonomous work. */
 export function BudgetProgress({ budget, className }: { budget: ResearchBudget; className?: string }) {
+  const { t } = useI18n();
   const rows: { label: string; used: number; max: number; danger?: boolean }[] = [
-    { label: "Experiments", used: budget.experiments, max: budget.max_experiments },
+    { label: t("Experiments"), used: budget.experiments, max: budget.max_experiments },
     {
-      label: "Failed experiments",
+      label: t("Failed experiments"),
       used: budget.failed_experiments,
       max: budget.max_failed_experiments,
       danger: true,
     },
-    { label: "Iterations", used: budget.iterations, max: budget.max_iterations },
-    { label: "Replans", used: budget.replans, max: budget.max_replans },
+    { label: t("Iterations"), used: budget.iterations, max: budget.max_iterations },
+    { label: t("Replans"), used: budget.replans, max: budget.max_replans },
   ];
   if (budget.max_hpo_trials > 0) {
-    rows.push({ label: "HPO trials", used: budget.hpo_trials, max: budget.max_hpo_trials });
+    rows.push({ label: t("HPO trials"), used: budget.hpo_trials, max: budget.max_hpo_trials });
   }
 
   return (

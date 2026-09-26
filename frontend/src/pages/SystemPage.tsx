@@ -1,57 +1,60 @@
+import { useI18n } from "@/i18n";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { KeyValue, MonoValue, Panel } from "@/components/ui/primitives";
 
 /** Runtime environment facts, mirroring the Phase 2 execution contract. */
 export default function SystemPage() {
+  const { t } = useI18n();
   return (
     <>
       <PageHeader
-        title="System"
-        description="Execution environment and persistence contract. Values reflect the Phase 2 backend; this frontend currently serves typed fixture data."
+        title={t("System")}
+        description={t("Runtime environment, persisted research state, and frontend API connection.")}
       />
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Execution">
+        <Panel title={t("Execution")}>
           <KeyValue
             columns={1}
             items={[
-              { key: "Executors", value: "fake (offline), docker (isolated MNIST)" },
-              { key: "Container filesystem", value: "read-only root + source" },
-              { key: "Network", value: <MonoValue>none</MonoValue> },
-              { key: "Resource limits", value: <MonoValue>2 CPU · 2048 MiB · PID cap</MonoValue> },
-              { key: "Worktrees", value: "detached, UUID-named, cleanup verified" },
+              { key: t("Executors"), value: t("fake (offline), docker (isolated MNIST)") },
+              { key: t("Container filesystem"), value: t("read-only root + source") },
+              { key: t("Network"), value: <MonoValue>none</MonoValue> },
+              { key: t("Resource limits"), value: <MonoValue>{t("2 CPU · 2048 MiB · PID cap")}</MonoValue> },
+              { key: t("Worktrees"), value: t("detached, UUID-named, cleanup verified") },
             ]}
           />
         </Panel>
-        <Panel title="Persistence">
+        <Panel title={t("Persistence")}>
           <KeyValue
             columns={1}
             items={[
-              { key: "Store", value: <MonoValue truncate>SQLite (.labpilot/labpilot.sqlite3)</MonoValue> },
-              { key: "State schema", value: <MonoValue>schema_version 1</MonoValue> },
-              { key: "Checkpoints", value: "one revision per completed step" },
-              { key: "Resume", value: "from persisted next_step cursor" },
-              { key: "Artifacts", value: "stdout/stderr, metrics.json, provenance.json, diffs, source" },
+              { key: t("Store"), value: <MonoValue truncate>SQLite (.labpilot/labpilot.sqlite3)</MonoValue> },
+              { key: t("State schema"), value: <MonoValue>schema_version 1</MonoValue> },
+              { key: t("Checkpoints"), value: t("one revision per completed step") },
+              { key: t("Resume"), value: t("from persisted next_step cursor") },
+              { key: t("Artifacts"), value: t("stdout/stderr, metrics.json, provenance.json, diffs, source") },
             ]}
           />
         </Panel>
-        <Panel title="Frontend data source">
+        <Panel title={t("Frontend data source")}>
           <KeyValue
             columns={1}
             items={[
-              { key: "Mode", value: "typed fixtures (mock)" },
-              { key: "Boundary", value: <MonoValue truncate>src/services/labpilot-api.ts</MonoValue> },
-              { key: "Backend integration", value: "planned — HTTP adapter behind the same API" },
+              { key: t("Mode"), value: import.meta.env.VITE_LABPILOT_USE_MOCKS === "true" ? t("typed fixtures (mock)") : t("SQLite research API") },
+              { key: t("Boundary"), value: <MonoValue truncate>src/services/labpilot-api.ts</MonoValue> },
+              { key: t("Backend integration"), value: <MonoValue truncate>/api → labpilot serve-api</MonoValue> },
             ]}
           />
         </Panel>
-        <Panel title="Loop phases">
+        <Panel title={t("Loop phases")}>
           <KeyValue
             columns={1}
             items={[
-              { key: "Phase 2 (current)", value: "Git worktrees, Docker execution, real MNIST metrics" },
-              { key: "Phase 3", value: "Optuna hyperparameter optimization (in development)" },
-              { key: "Phase 4", value: "LLM hypothesis and patch generation" },
-              { key: "Phase 5", value: "arXiv / Semantic Scholar evidence grounding" },
+              { key: t("Phase 2"), value: t("Git worktrees, Docker execution, real MNIST metrics") },
+              { key: t("Phase 3"), value: t("Optuna hyperparameter optimization") },
+              { key: t("Phase 4"), value: t("LLM hypothesis and patch generation") },
+              { key: t("Phase 5"), value: t("arXiv / Semantic Scholar evidence grounding") },
+              { key: t("Phase 6"), value: t("Snapshot reports and observational benchmarks") },
             ]}
           />
         </Panel>

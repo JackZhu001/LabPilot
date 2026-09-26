@@ -1,8 +1,10 @@
 """CLI adapters for local, simulated research runs."""
 
+import json
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 from uuid import UUID
@@ -11,6 +13,7 @@ import typer
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
+from labpilot.api import serve
 from labpilot.execution.git import GitError
 from labpilot.graph.workflow import execute
 from labpilot.hpo.models import HPOConfig
@@ -29,6 +32,7 @@ from labpilot.persistence.repository import (
     SQLiteResearchRepository,
     StateConflictError,
 )
+from labpilot.reporting import benchmark, benchmark_markdown, report_markdown, research_report
 from labpilot.services.real import configure_docker, prepare_example
 
 app = typer.Typer(
@@ -283,3 +287,62 @@ def prepare_example_command(
     except (OSError, ValueError, GitError) as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1) from exc
+
+
+@app.command()
+def serve_api(
+    db: DatabaseOption = DEFAULT_DB,
+    host: Annotated[str, typer.Option()] = "127.0.0.1",
+    port: Annotated[int, typer.Option(min=1, max=65535)] = 8000,
+) -> None:
+    """Serve the read-only API consumed by the frontend."""
+    serve(db, host, port)
+
+
+class ReportFormat(StrEnum):
+    MARKDOWN = "markdown"
+    JSON = "json"
+
+
+@app.command("report")
+def report_command(
+    research_id: UUID,
+    db: DatabaseOption = DEFAULT_DB,
+    format: Annotated[ReportFormat, typer.Option()] = ReportFormat.MARKDOWN,
+) -> None:
+    """Export a reproducible report to stdout without running experiments."""
+    with repository_at(db) as repository:
+        state = repository.load(research_id)
+        typer.echo(
+            report_markdown(state)
+            if format == ReportFormat.MARKDOWN
+            else json.dumps(research_report(state), indent=2, allow_nan=False)
+        )
+
+
+@app.command("benchmark")
+def benchmark_command(
+    db: Annotated[list[Path] | None, typer.Option("--db")] = None,
+    run_id: Annotated[list[UUID] | None, typer.Option("--run-id")] = None,
+    format: Annotated[ReportFormat, typer.Option()] = ReportFormat.JSON,
+) -> None:
+    """Compare saved runs across one or more databases; never launch training."""
+    states: list[ResearchState] = []
+    for path in db or [DEFAULT_DB]:
+        with repository_at(path) as repository:
+            states.extend(
+                repository.load(row.research_id)
+                for row in repository.list_runs()
+                if not run_id or row.research_id in run_id
+            )
+    if run_id and set(run_id) - {state.research_id for state in states}:
+        raise typer.BadParameter("Some requested run IDs were not found")
+    try:
+        data = benchmark(states)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(
+        benchmark_markdown(data)
+        if format == ReportFormat.MARKDOWN
+        else json.dumps(data, indent=2, allow_nan=False)
+    )

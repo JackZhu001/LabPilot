@@ -7,6 +7,7 @@ from uuid import UUID, uuid5
 from labpilot.literature.cache import LiteratureCache
 from labpilot.literature.dedup import deduplicate_papers
 from labpilot.literature.providers import LiteratureProvider, LiteratureProviderError
+from labpilot.models.common import utc_now
 from labpilot.models.literature import LiteratureQueryPlan, Paper, PaperCandidate
 
 
@@ -44,6 +45,7 @@ class LiteratureRetrievalService:
                 Paper(
                     id=uuid5(research_id, f"paper:{index}"),
                     source_provider=candidate.provider,
+                    retrieved_at=utc_now(),
                     query_id=selected_query_id,
                     provider_references=references,
                     **candidate.model_dump(exclude={"provider"}),

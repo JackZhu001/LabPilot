@@ -1,3 +1,4 @@
+import { useI18n } from "@/i18n";
 import { Link } from "react-router-dom";
 import { useRequest } from "@/hooks/useRequest";
 import { getRuns } from "@/services/labpilot-api";
@@ -8,25 +9,26 @@ import { DeltaValue } from "@/components/research/MetricSummary";
 import { formatMetric, formatTimestamp, shortId } from "@/lib/utils";
 
 export default function RunsPage() {
+  const { t, locale } = useI18n();
   const { data: runs, loading, error } = useRequest(() => getRuns(), "runs");
 
   return (
     <>
       <PageHeader
-        title="Research Runs"
-        description="Every autonomous research loop: its goal, measured outcome, and final decision."
+        title={t("Research Runs")}
+        description={t("Every autonomous research loop: its goal, measured outcome, and final decision.")}
       />
       {loading ? (
         <TableSkeleton rows={5} />
       ) : error || !runs ? (
         <EmptyState
-          title="Runs unavailable"
-          description={error?.message ?? "Research runs could not be loaded."}
+          title={t("Runs unavailable")}
+          description={error?.message ?? t("Research runs could not be loaded.")}
         />
       ) : runs.length === 0 ? (
         <EmptyState
-          title="No research runs yet"
-          description="Start a loop from the CLI (labpilot run --goal …) or wait for a scheduled run. Completed and in-progress runs appear here with their decision outcome."
+          title={t("No research runs yet")}
+          description={t("Start a loop from the CLI (labpilot run --goal …) or wait for a scheduled run. Completed and in-progress runs appear here with their decision outcome.")}
         />
       ) : (
         <Panel bodyClassName="p-4">
@@ -35,17 +37,17 @@ export default function RunsPage() {
               <thead>
                 <tr>
                   {[
-                    "Research goal",
-                    "Research ID",
-                    "Status",
-                    "Decision",
-                    "Iteration",
-                    "Baseline",
-                    "Best",
+                    t("Research goal"),
+                    t("Research ID"),
+                    t("Status"),
+                    t("Decision"),
+                    t("Iteration"),
+                    t("Baseline"),
+                    t("Best"),
                     "Δ",
-                    "Experiments",
-                    "Executor",
-                    "Updated",
+                    t("Experiments"),
+                    t("Executor"),
+                    t("Updated"),
                   ].map((h) => (
                     <th
                       key={h}
@@ -92,14 +94,14 @@ export default function RunsPage() {
                     <td className="border-b border-line/70 px-2.5 py-2 font-mono text-xs text-ink-2">
                       {run.experiment_count}
                       {run.failed_experiments > 0 && (
-                        <span className="ml-1 text-danger">({run.failed_experiments} failed)</span>
+                        <span className="ml-1 text-danger">({run.failed_experiments} {t("failed)")}</span>
                       )}
                     </td>
                     <td className="border-b border-line/70 px-2.5 py-2 font-mono text-xs text-ink-2">
                       {run.executor}
                     </td>
                     <td className="whitespace-nowrap border-b border-line/70 px-2.5 py-2 font-mono text-[11px] text-faint">
-                      {formatTimestamp(run.updated_at)}
+                      {formatTimestamp(run.updated_at, locale)}
                     </td>
                   </tr>
                 ))}

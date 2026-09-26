@@ -1,3 +1,4 @@
+import { useI18n } from "@/i18n";
 import { useState, type ReactNode } from "react";
 import { Check, Copy, Inbox } from "lucide-react";
 import { cn, shortSha } from "@/lib/utils";
@@ -20,7 +21,7 @@ export function Panel({
   return (
     <section
       className={cn(
-        "rounded-panel border border-line bg-surface",
+        "lab-panel rounded-panel border border-line bg-surface",
         className,
       )}
     >
@@ -122,6 +123,7 @@ export function EmptyState({
   action?: ReactNode;
   className?: string;
 }) {
+  const { t } = useI18n();
   return (
     <div
       className={cn(
@@ -133,7 +135,7 @@ export function EmptyState({
         {icon ?? <Inbox className="size-6" strokeWidth={1.5} />}
       </div>
       <p className="text-sm font-medium text-ink">{title}</p>
-      <p className="max-w-[46ch] text-[13px] leading-relaxed text-muted">{description}</p>
+      <p className="max-w-[46ch] text-[13px] leading-relaxed text-muted">{t(description)}</p>
       {action && <div className="mt-1.5">{action}</div>}
     </div>
   );
@@ -150,6 +152,7 @@ export function ErrorState({
   message: string;
   onRetry?: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div
       role="alert"
@@ -163,8 +166,7 @@ export function ErrorState({
           onClick={onRetry}
           className="mt-2 rounded-[4px] border border-line-strong px-2 py-1 text-xs font-medium text-ink transition-colors hover:bg-surface-3"
         >
-          Retry
-        </button>
+          {t("Retry")}</button>
       )}
     </div>
   );
@@ -181,12 +183,13 @@ export function CopyButton({
   label?: string;
   className?: string;
 }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   return (
     <button
       type="button"
-      aria-label={`Copy ${label ?? "value"}`}
-      title={`Copy ${label ?? "value"}: ${value}`}
+      aria-label={t("Copy {label}", {label: label ?? t("value")})}
+      title={`${t("Copy {label}", {label: label ?? t("value")})}: ${value}`}
       onClick={(e) => {
         e.stopPropagation();
         navigator.clipboard?.writeText(value).then(() => {
@@ -233,10 +236,11 @@ export function MonoValue({
 }
 
 export function ShaValue({ sha, className }: { sha: string; className?: string }) {
+  const { t } = useI18n();
   return (
     <span className={cn("inline-flex items-center gap-1", className)}>
       <MonoValue>{shortSha(sha)}</MonoValue>
-      <CopyButton value={sha} label="commit SHA" />
+      <CopyButton value={sha} label={t("commit SHA")} />
     </span>
   );
 }

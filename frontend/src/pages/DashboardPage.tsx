@@ -1,235 +1,92 @@
+import { useI18n } from "@/i18n";
 import { Link } from "react-router-dom";
-import { ArrowRight, FlaskConical } from "lucide-react";
+import { ArrowUpRight, ArrowRight, FlaskConical, FileText } from "lucide-react";
 import { useRequest } from "@/hooks/useRequest";
 import { getActivity, getFeaturedRun, getRuns } from "@/services/labpilot-api";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { Panel, PanelSkeleton, TableSkeleton, Skeleton, EmptyState } from "@/components/ui/primitives";
-import { DecisionBadge, DecisionPendingBadge, RunStatusBadge } from "@/components/ui/badges";
+import { Panel, PanelSkeleton, EmptyState } from "@/components/ui/primitives";
+import { DecisionBadge, RunStatusBadge } from "@/components/ui/badges";
 import { ResearchLoop } from "@/components/research/ResearchLoop";
+import { ResearchCore } from "@/components/research/ResearchCore";
 import { ActivityTimeline } from "@/components/research/ActivityTimeline";
-import { DeltaValue } from "@/components/research/MetricSummary";
-import { formatMetric, formatTimestamp, shortId } from "@/lib/utils";
-import type { RunSummary } from "@/types/domain";
-
-function RecentRunsTable({ runs }: { runs: RunSummary[] }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] border-collapse">
-        <thead>
-          <tr>
-            {["Goal", "Status", "Decision", "Baseline", "Best", "Δ", "Experiments", "Updated"].map(
-              (h) => (
-                <th
-                  key={h}
-                  scope="col"
-                  className="border-b border-line px-2.5 py-2 text-left text-[11px] font-semibold tracking-wide text-muted first:pl-0 last:pr-0"
-                >
-                  {h}
-                </th>
-              ),
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {runs.map((run) => (
-            <tr key={run.research_id} className="group">
-              <td className="max-w-[260px] truncate border-b border-line/70 px-2.5 py-2 pl-0">
-                <Link
-                  to={`/runs/${run.research_id}`}
-                  className="text-[13px] font-medium text-accent-ink underline-offset-2 group-hover:underline"
-                >
-                  {run.goal}
-                </Link>
-              </td>
-              <td className="border-b border-line/70 px-2.5 py-2">
-                <RunStatusBadge status={run.status} />
-              </td>
-              <td className="border-b border-line/70 px-2.5 py-2">
-                {run.decision ? <DecisionBadge decision={run.decision} /> : <DecisionPendingBadge />}
-              </td>
-              <td className="border-b border-line/70 px-2.5 py-2 font-mono text-xs text-ink-2">
-                {formatMetric(run.baseline_metric)}
-              </td>
-              <td className="border-b border-line/70 px-2.5 py-2 font-mono text-xs font-medium text-ink">
-                {formatMetric(run.best_metric)}
-              </td>
-              <td className="border-b border-line/70 px-2.5 py-2">
-                <DeltaValue value={run.delta} />
-              </td>
-              <td className="border-b border-line/70 px-2.5 py-2 font-mono text-xs text-ink-2">
-                {run.experiment_count}
-                {run.failed_experiments > 0 && (
-                  <span className="ml-1 text-danger">({run.failed_experiments} failed)</span>
-                )}
-              </td>
-              <td className="whitespace-nowrap border-b border-line/70 px-2.5 py-2 pr-0 font-mono text-[11px] text-faint">
-                {formatTimestamp(run.updated_at)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+import { formatMetric, formatDelta, formatTimestamp } from "@/lib/utils";
 
 export default function DashboardPage() {
+  const { t, locale } = useI18n();
   const featured = useRequest(() => getFeaturedRun(), "featured");
   const runs = useRequest(() => getRuns(), "runs");
-  const activity = useRequest(() => getActivity(10), "activity");
+  const activity = useRequest(() => getActivity(5), "activity");
+  const latest = featured.data;
+  const summary = runs.data?.find((run) => run.research_id === latest?.research_id);
+  const count = (value: number | undefined) => value === undefined ? "···" : String(value).padStart(2, "0");
 
   return (
     <>
-      <PageHeader
-        title="Dashboard"
-        description="What the research agent is trying, what it measured, and what it decided."
-      />
+      <section className="workspace-hero" aria-label={t("Research workspace")}>
+        <div>
+          <p className="mb-5 font-mono text-[11px] uppercase tracking-[.2em] text-muted">{t("Autonomous research workspace")}</p>
+          <h1 className="hero-title">{t("Ideas into")}<br /><span>{t("evidence.")}</span></h1>
+          <p className="hero-copy">{t("Follow the questions, inspect the experiments, and understand what your research agent learned.")}</p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Link className="primary-button" to="/runs">{t("Explore research")}<ArrowUpRight size={16} /></Link>
+            <Link className="secondary-button" to="/reports">{t("View reports")}<FileText size={15} /></Link>
+          </div>
+        </div>
+        <ResearchCore />
+      </section>
 
-      {/* A. Current research */}
-      <section aria-labelledby="current-research" className="mb-4">
-        <h2 id="current-research" className="sr-only">
-          Current research
-        </h2>
-        {featured.loading ? (
-          <PanelSkeleton rows={3} />
-        ) : featured.error || !featured.data ? (
-          <EmptyState
-            title="Research unavailable"
-            description="The current research run could not be loaded."
-          />
+      <section aria-label={t("Workspace totals")} className="metric-ribbon">
+        <div><small>{t("Research runs")}</small><strong>{count(runs.data?.length)}</strong></div>
+        <div><small>{t("Experiments recorded")}</small><strong>{count(runs.data?.reduce((total, run) => total + run.experiment_count, 0))}</strong></div>
+        <div><small>{t("KEEP decisions")}</small><strong className="text-accent">{count(runs.data?.filter((run) => run.decision === "KEEP").length)}</strong></div>
+        <div><small>{t("Docker research runs")}</small><strong>{count(runs.data?.filter((run) => run.executor === "docker").length)}</strong></div>
+      </section>
+
+      <section aria-label={t("Current research")} className="mb-8">
+        {featured.loading ? <PanelSkeleton rows={4} /> : !latest ? (
+          <EmptyState title={t("No current research")} description={featured.error?.message ?? t("Create a research run to begin.")} />
         ) : (
-          <Panel
-            title={
-              <span className="flex items-center gap-2">
-                <FlaskConical className="size-3.5 text-accent" aria-hidden="true" />
-                Current research
-              </span>
-            }
-            actions={
-              <Link
-                to={`/runs/${featured.data.research_id}`}
-                className="inline-flex items-center gap-1 rounded-[4px] px-1.5 py-0.5 text-xs font-medium text-accent-ink transition-colors hover:bg-accent-soft"
-              >
-                View run
-                <ArrowRight className="size-3" aria-hidden="true" />
-              </Link>
-            }
-            bodyClassName="p-4 lg:p-5"
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="mr-auto max-w-[60ch] text-[15px] font-semibold text-ink">
-                {featured.data.goal}
-              </p>
-              <RunStatusBadge status={featured.data.status} />
-              {featured.data.decision ? (
-                <DecisionBadge decision={featured.data.decision} />
-              ) : (
-                <DecisionPendingBadge />
-              )}
+          <div className="current-run">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <p className="flex items-center gap-2 text-xs text-muted"><FlaskConical size={15} /> {t("Latest research")}</p>
+              <div className="flex gap-2"><RunStatusBadge status={latest.status} />{latest.decision && <DecisionBadge decision={latest.decision} />}</div>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-line pt-4 sm:grid-cols-3 lg:grid-cols-6">
-              {[
-                { label: "Baseline", value: formatMetric(featured.data.baseline.value) },
-                {
-                  label: "Best measured",
-                  value: formatMetric(
-                    featured.data.experiments.reduce<number | null>(
-                      (best, e) =>
-                        e.metric_value === null
-                          ? best
-                          : best === null || e.metric_value > best
-                            ? e.metric_value
-                            : best,
-                      null,
-                    ),
-                  ),
-                },
-                { label: "Iteration", value: String(featured.data.iteration) },
-                { label: "Experiments", value: `${featured.data.budget.experiments} / ${featured.data.budget.max_experiments}` },
-                { label: "Executor", value: featured.data.executor },
-                {
-                  label: "Research ID",
-                  value: <span className="font-mono text-xs">{shortId(featured.data.research_id, 12)}</span>,
-                },
-              ].map((cell) => (
-                <div key={cell.label}>
-                  <p className="text-[11px] tracking-wide text-muted">{cell.label}</p>
-                  <p className="mt-0.5 font-mono text-sm font-medium text-ink">{cell.value}</p>
+            <div className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
+              <div>
+                <h2>{latest.goal}</h2>
+                <p className="mt-3 text-xs text-muted">{latest.executor === "fake" ? t("Simulated execution") : t("Docker execution")} {t("· Updated")}{" "}{formatTimestamp(latest.updated_at, locale)}</p>
+                <div className="mt-5 flex flex-wrap gap-5 text-[13px]">
+                  <Link className="inline-flex items-center gap-2 text-accent-ink hover:underline" to={`/runs/${latest.research_id}`}>{t("Inspect run")}<ArrowRight size={14} /></Link>
+                  <Link className="inline-flex items-center gap-2 text-muted hover:text-ink" to={`/reports/${latest.research_id}`}>{t("Read report")}<ArrowUpRight size={14} /></Link>
                 </div>
-              ))}
+              </div>
+              <dl className="grid grid-cols-3 gap-4 self-center xl:border-l xl:border-line xl:pl-8">
+                <div><dt className="text-xs text-muted">{t("Baseline")}</dt><dd className="mt-2 font-mono text-xl">{formatMetric(summary?.baseline_metric)}</dd></div>
+                <div><dt className="text-xs text-muted">{t("Best candidate")}</dt><dd className="mt-2 font-mono text-xl">{formatMetric(summary?.best_metric)}</dd></div>
+                <div><dt className="text-xs text-muted">{t("Improvement")}</dt><dd className={`mt-2 font-mono text-xl ${(summary?.delta ?? 0) < 0 ? "text-danger" : "text-accent"}`}>{formatDelta(summary?.delta)}</dd></div>
+              </dl>
             </div>
-          </Panel>
+            <div className="mt-7 border-t border-line pt-5"><ResearchLoop nextStep={latest.next_step} /></div>
+          </div>
         )}
       </section>
 
-      {/* B. Research loop */}
-      <section aria-labelledby="research-loop" className="mb-4">
-        <Panel
-          title="Research loop"
-          actions={
-            <span className="text-[11px] text-faint">
-              Literature and HPO stages marked with their backend phase
-            </span>
-          }
-        >
-          <ResearchLoop plannedPhases={[3, 5]} />
-          <p className="mt-3 border-t border-line pt-3 text-xs leading-relaxed text-muted">
-            Phase 2 executes real isolated experiments: Git worktree, Docker container, validated
-            metrics. Literature retrieval (Phase 5) and Optuna search (Phase 3) are in development
-            and marked accordingly.
-          </p>
-        </Panel>
-      </section>
-
-      <div className="grid gap-4 xl:grid-cols-[1fr_400px]">
-        {/* C. Recent runs */}
+      <div className="grid gap-7 xl:grid-cols-[1.4fr_1fr]">
         <section aria-labelledby="recent-runs">
-          <h2 id="recent-runs" className="mb-2.5 text-[13px] font-semibold tracking-wide text-ink">
-            Recent runs
-          </h2>
-          {runs.loading ? (
-            <TableSkeleton rows={4} />
-          ) : runs.error || !runs.data ? (
-            <EmptyState
-              title="Runs unavailable"
-              description="Research runs could not be loaded. Retry from the Research Runs page."
-            />
-          ) : runs.data.length === 0 ? (
-            <EmptyState
-              title="No research runs yet"
-              description="Runs appear here once LabPilot starts a research loop. Start one with the CLI: labpilot run --goal …"
-            />
-          ) : (
-            <Panel bodyClassName="p-4">
-              <RecentRunsTable runs={runs.data} />
-            </Panel>
+          <div className="mb-4 flex items-center justify-between"><h2 id="recent-runs" className="text-lg font-medium tracking-tight">{t("Research journal")}</h2><Link to="/runs" className="text-xs text-muted hover:text-accent">{t("All runs")}<span aria-hidden="true">↗</span></Link></div>
+          {runs.loading ? <PanelSkeleton rows={4} /> : runs.error || !runs.data ? <EmptyState title={t("Runs unavailable")} description={runs.error?.message ?? t("Could not load research runs.")} /> : runs.data.length === 0 ? <EmptyState title={t("Your journal is empty")} description={t("Research runs appear here once a loop has started.")} /> : (
+            <div>{runs.data.slice(0, 5).map((run, index) => (
+              <Link key={run.research_id} to={`/runs/${run.research_id}`} className="run-row">
+                <span className="font-mono text-xs text-faint">{String(index + 1).padStart(2, "0")}</span>
+                <div className="min-w-0 flex-1"><p className="truncate text-sm text-ink">{run.goal}</p><p className="mt-1 text-[11px] text-muted">{run.executor} · {run.experiment_count} {t("experiments")}</p></div>
+                {run.decision ? <DecisionBadge decision={run.decision} /> : <RunStatusBadge status={run.status} />}
+                <ArrowUpRight className="shrink-0 text-faint" size={15} />
+              </Link>
+            ))}</div>
           )}
         </section>
-
-        {/* D. Activity timeline */}
         <section aria-labelledby="activity">
-          <h2 id="activity" className="mb-2.5 text-[13px] font-semibold tracking-wide text-ink">
-            Activity
-          </h2>
-          <Panel bodyClassName="p-4">
-            {activity.loading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex gap-3">
-                    <Skeleton className="size-[23px] shrink-0 rounded-full" />
-                    <div className="flex-1 space-y-1.5">
-                      <Skeleton className="h-3 w-2/3" />
-                      <Skeleton className="h-2.5 w-1/2" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : activity.error || !activity.data ? (
-              <p className="text-[13px] text-muted">Activity feed unavailable.</p>
-            ) : (
-              <ActivityTimeline events={activity.data} showRunLink />
-            )}
-          </Panel>
+          <h2 id="activity" className="mb-4 text-lg font-medium tracking-tight">{t("Latest activity")}</h2>
+          <Panel>{activity.loading ? <p className="text-sm text-muted">{t("Loading activity…")}</p> : activity.error ? <p className="text-sm text-muted">{t("Activity could not be loaded.")}</p> : <ActivityTimeline events={activity.data ?? []} showRunLink />}</Panel>
         </section>
       </div>
     </>

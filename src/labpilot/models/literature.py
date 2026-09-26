@@ -16,7 +16,6 @@ from labpilot.models.common import (
     HypothesisStatus,
     SourceScope,
     Text,
-    utc_now,
 )
 
 
@@ -79,7 +78,7 @@ class Paper(DomainModel):
     external_id: Text | None = None
     source_provider: Text
     venue: Text | None = None
-    retrieved_at: AwareDatetime = Field(default_factory=utc_now)
+    retrieved_at: AwareDatetime | None = None
     query_id: UUID | None = None
     provider_references: tuple[ProviderReference, ...] = ()
 

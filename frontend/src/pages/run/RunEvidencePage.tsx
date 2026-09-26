@@ -1,3 +1,4 @@
+import { useI18n } from "@/i18n";
 import { useOutletContext } from "react-router-dom";
 import type { ResearchRun } from "@/types/domain";
 import { MonoValue, Panel, EmptyState } from "@/components/ui/primitives";
@@ -5,10 +6,10 @@ import { RelationBadge } from "@/components/ui/badges";
 
 /**
  * Evidence tab: the paper → claim → evidence → hypothesis chain recorded in
- * the run state. Literature retrieval is not implemented (Phase 5); current
- * runs carry explicit fixture literature.
+ * the persisted research state.
  */
 export default function RunEvidencePage() {
+  const { t } = useI18n();
   const { run } = useOutletContext<{ run: ResearchRun }>();
   const hasChain = run.papers.length > 0;
 
@@ -16,12 +17,12 @@ export default function RunEvidencePage() {
     <div className="space-y-4">
       {!hasChain ? (
         <EmptyState
-          title="No literature recorded"
-          description="This run has no papers, claims, or evidence in its state. Literature grounding arrives in Phase 5."
+          title={t("No literature recorded")}
+          description={t("This run has no papers, claims, or evidence. Repository-only hypotheses can still proceed.")}
         />
       ) : (
         <>
-          <Panel title="Literature chain" bodyClassName="p-4">
+          <Panel title={t("Literature chain")} bodyClassName="p-4">
             <ol className="space-y-4">
               {run.papers.map((paper) => (
                 <li key={paper.id} className="rounded-[6px] border border-line bg-surface-2 px-3.5 py-3">
@@ -53,11 +54,10 @@ export default function RunEvidencePage() {
                         <div key={claim.id}>
                           <p className="text-[13px] leading-relaxed text-ink-2">
                             <span className="mr-1.5 rounded-[3px] border border-line-strong px-1 text-[10px] font-semibold tracking-wide text-faint">
-                              CLAIM
-                            </span>
+                              {t("CLAIM")}</span>
                             {claim.statement}
                             <span className="ml-2 font-mono text-[11px] text-faint">
-                              confidence {claim.confidence}
+                              {t("confidence")}{" "}{claim.confidence}
                             </span>
                           </p>
                           <ul className="mt-2 space-y-1.5">
@@ -71,7 +71,7 @@ export default function RunEvidencePage() {
                                   <RelationBadge relation={ev.relation} />
                                   <span className="text-xs leading-relaxed text-ink-2">{ev.summary}</span>
                                   <span className="ml-auto font-mono text-[11px] text-faint">
-                                    confidence {ev.confidence}
+                                    {t("confidence")}{" "}{ev.confidence}
                                   </span>
                                 </li>
                               ))}
@@ -85,13 +85,13 @@ export default function RunEvidencePage() {
           </Panel>
 
           {/* Linked hypotheses */}
-          <Panel title="Linked hypotheses">
+          <Panel title={t("Linked hypotheses")}>
             <ul className="space-y-2.5">
               {run.hypotheses.map((h) => (
                 <li key={h.id} className="rounded-[6px] border border-line bg-surface-2 px-3.5 py-3">
                   <p className="text-[13px] font-medium leading-relaxed text-ink">{h.statement}</p>
                   <p className="mt-1 font-mono text-[11px] text-faint">
-                    evidence linked via state provenance · status {h.status} · expected {h.expected_effect}
+                    {t("evidence linked via state provenance · status")}{" "}{t(h.status)} {t("· expected")}{" "}{h.expected_effect}
                   </p>
                 </li>
               ))}

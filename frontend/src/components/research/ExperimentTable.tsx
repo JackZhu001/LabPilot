@@ -1,3 +1,4 @@
+import { useI18n } from "@/i18n";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { Experiment } from "@/types/domain";
@@ -45,6 +46,7 @@ export function ExperimentTable({
   showResearch?: boolean;
   researchGoals?: Record<string, string>;
 }) {
+  const { t } = useI18n();
   const [filter, setFilter] = useState<Filter>("all");
   const navigate = useNavigate();
   const rows = useMemo(
@@ -54,7 +56,7 @@ export function ExperimentTable({
 
   return (
     <div className="space-y-3">
-      <div role="group" aria-label="Filter experiments" className="flex flex-wrap gap-1.5">
+      <div role="group" aria-label={t("Filter experiments")} className="flex flex-wrap gap-1.5">
         {FILTERS.map((f) => {
           const count = f.id === "all" ? experiments.length : experiments.filter(f.test).length;
           const active = filter === f.id;
@@ -71,7 +73,7 @@ export function ExperimentTable({
                   : "border-line-strong bg-surface text-muted hover:bg-surface-2 hover:text-ink",
               )}
             >
-              {f.label}
+              {t(f.label)}
               <span className="ml-1 font-mono text-[11px] text-faint">{count}</span>
             </button>
           );
@@ -80,11 +82,11 @@ export function ExperimentTable({
 
       {rows.length === 0 ? (
         <EmptyState
-          title="No experiments match"
+          title={t("No experiments match")}
           description={
             experiments.length === 0
-              ? "This research run has not executed any experiments yet."
-              : "No experiments match the selected filter."
+              ? t("This research run has not executed any experiments yet.")
+              : t("No experiments match the selected filter.")
           }
         />
       ) : (
@@ -92,16 +94,16 @@ export function ExperimentTable({
           <table className="w-full min-w-[760px] border-collapse">
             <thead>
               <tr>
-                {th("Experiment")}
-                {showResearch && th("Research goal", "min-w-[220px] max-w-[320px] truncate")}
-                {th("Type")}
-                {th("Status")}
-                {th("Metric")}
-                {th("Δ vs baseline")}
-                {th("Runtime", "text-right")}
-                {th("Executor")}
-                {th("Commit SHA")}
-                {th("Decision")}
+                {th(t("Experiment"))}
+                {showResearch && th(t("Research goal"), "min-w-[220px] max-w-[320px] truncate")}
+                {th(t("Type"))}
+                {th(t("Status"))}
+                {th(t("Metric"))}
+                {th(t("Δ vs baseline"))}
+                {th(t("Runtime"), "text-right")}
+                {th(t("Executor"))}
+                {th(t("Commit SHA"))}
+                {th(t("Decision"))}
               </tr>
             </thead>
             <tbody>
@@ -123,7 +125,7 @@ export function ExperimentTable({
                         className="inline-flex items-center gap-1.5 font-mono text-xs font-medium text-accent-ink hover:underline"
                       >
                         {shortId(e.id, 14)}
-                        <CopyButton value={e.id} label="experiment ID" />
+                        <CopyButton value={e.id} label={t("experiment ID")} />
                       </Link>
                       <span className="ml-2 text-[11px] text-faint">#{e.sequence}</span>
                     </td>
@@ -154,7 +156,7 @@ export function ExperimentTable({
                       {sha ? (
                         <span className="inline-flex items-center gap-1 font-mono text-xs text-ink-2">
                           {sha.slice(0, 7)}
-                          <CopyButton value={sha} label="commit SHA" />
+                          <CopyButton value={sha} label={t("commit SHA")} />
                         </span>
                       ) : (
                         <span className="font-mono text-xs text-faint">—</span>

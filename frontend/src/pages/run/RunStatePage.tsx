@@ -1,3 +1,4 @@
+import { useI18n } from "@/i18n";
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Braces } from "lucide-react";
@@ -14,6 +15,7 @@ import { DecisionBadge, DecisionPendingBadge } from "@/components/ui/badges";
  * view for technical demos. The backend state is the single source of truth.
  */
 export default function RunStatePage() {
+  const { t, locale } = useI18n();
   const { run } = useOutletContext<{ run: ResearchRun }>();
   const researchId = run.research_id;
   const { data: rawState } = useRequest(() => getRawState(researchId), researchId);
@@ -24,7 +26,7 @@ export default function RunStatePage() {
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-3">
-        <Panel title="Identity">
+        <Panel title={t("Identity")}>
           <KeyValue
             columns={1}
             items={[
@@ -34,13 +36,13 @@ export default function RunStatePage() {
               { key: "next_step", value: <MonoValue>{run.next_step}</MonoValue> },
               { key: "revision", value: <MonoValue>{run.revision}</MonoValue> },
               { key: "iteration", value: <MonoValue>{run.iteration}</MonoValue> },
-              { key: "created_at", value: formatTimestamp(run.created_at) },
-              { key: "updated_at", value: formatTimestamp(run.updated_at) },
+              { key: "created_at", value: formatTimestamp(run.created_at, locale) },
+              { key: "updated_at", value: formatTimestamp(run.updated_at, locale) },
             ]}
           />
         </Panel>
 
-        <Panel title="Decision">
+        <Panel title={t("Decision")}>
           <KeyValue
             columns={1}
             items={[
@@ -48,9 +50,9 @@ export default function RunStatePage() {
                 key: "decision",
                 value: run.decision ? <DecisionBadge decision={run.decision} /> : <DecisionPendingBadge />,
               },
-              { key: "decisions recorded", value: <MonoValue>{run.decisions.length}</MonoValue> },
+              { key: t("decisions recorded"), value: <MonoValue>{run.decisions.length}</MonoValue> },
               {
-                key: "active hypothesis",
+                key: t("active hypothesis"),
                 value: run.hypotheses.length ? (
                   <MonoValue truncate>{run.hypotheses[run.hypotheses.length - 1].id}</MonoValue>
                 ) : (
@@ -65,28 +67,28 @@ export default function RunStatePage() {
           />
           {run.decisions.length > 0 && (
             <p className="mt-3 border-t border-line pt-2.5 text-xs leading-relaxed text-muted">
-              Latest: {run.decisions[run.decisions.length - 1].reason}
+              {t("Latest:")}{" "}{run.decisions[run.decisions.length - 1].reason}
             </p>
           )}
         </Panel>
 
-        <Panel title="Budget">
+        <Panel title={t("Budget")}>
           <BudgetProgress budget={run.budget} />
         </Panel>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Baseline">
+        <Panel title={t("Baseline")}>
           <KeyValue
             columns={2}
             items={[
               { key: "metric_name", value: <MonoValue>{run.baseline.metric_name}</MonoValue> },
-              { key: "value", value: <MonoValue>{run.baseline.value}</MonoValue> },
-              { key: "direction", value: run.baseline.direction },
+              { key: t("value"), value: <MonoValue>{run.baseline.value}</MonoValue> },
+              { key: t("direction"), value: run.baseline.direction },
               { key: "min_delta", value: <MonoValue>{run.baseline.min_delta}</MonoValue> },
               { key: "regression_delta", value: <MonoValue>{run.baseline.regression_delta}</MonoValue> },
               {
-                key: "baseline experiment",
+                key: t("baseline experiment"),
                 value: baselineExperiment ? (
                   <MonoValue truncate>{baselineExperiment.id.slice(0, 14)}…</MonoValue>
                 ) : (
@@ -97,7 +99,7 @@ export default function RunStatePage() {
           />
         </Panel>
 
-        <Panel title="Collections">
+        <Panel title={t("Collections")}>
           <KeyValue
             columns={2}
             items={[
@@ -106,7 +108,7 @@ export default function RunStatePage() {
               { key: "evidence", value: <MonoValue>{run.evidence.length}</MonoValue> },
               { key: "hypotheses", value: <MonoValue>{run.hypotheses.length}</MonoValue> },
               { key: "patches", value: <MonoValue>{run.patches.length}</MonoValue> },
-              { key: "experiments", value: <MonoValue>{run.experiments.length}</MonoValue> },
+              { key: t("experiments"), value: <MonoValue>{run.experiments.length}</MonoValue> },
               { key: "studies", value: <MonoValue>{run.studies.length}</MonoValue> },
               { key: "trials", value: <MonoValue>{run.trials.length}</MonoValue> },
             ]}
@@ -115,19 +117,19 @@ export default function RunStatePage() {
       </div>
 
       {/* Checkpoint / execution */}
-      <Panel title="Checkpoint & execution">
+      <Panel title={t("Checkpoint & execution")}>
         <KeyValue
           columns={3}
           items={[
-            { key: "next_step cursor", value: <MonoValue>{run.next_step}</MonoValue> },
+            { key: t("next_step cursor"), value: <MonoValue>{run.next_step}</MonoValue> },
             { key: "revision", value: <MonoValue>{run.revision}</MonoValue> },
-            { key: "executor", value: <MonoValue>{run.executor}</MonoValue> },
+            { key: t("executor"), value: <MonoValue>{run.executor}</MonoValue> },
             {
-              key: "storage",
+              key: t("storage"),
               value: <MonoValue truncate>.labpilot/labpilot.sqlite3</MonoValue>,
             },
             {
-              key: "resume behavior",
+              key: t("resume behavior"),
               value: "completed steps commit exactly one revision",
             },
           ]}
@@ -146,7 +148,7 @@ export default function RunStatePage() {
           )}
         >
           <Braces className="size-3.5" aria-hidden="true" />
-          {showRaw ? "Hide raw state" : "Show raw state (JSON)"}
+          {showRaw ? t("Hide raw state") : t("Show raw state (JSON)")}
         </button>
         {showRaw && (
           <pre className="mt-2.5 max-h-[480px] overflow-auto rounded-[6px] border border-line bg-surface-2 p-4 font-mono text-[11px] leading-relaxed text-ink-2">

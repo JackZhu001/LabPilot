@@ -1,3 +1,4 @@
+import { useI18n } from "@/i18n";
 import { Link, useOutletContext, useParams } from "react-router-dom";
 import type { ResearchRun } from "@/types/domain";
 import { formatMetric, formatRuntime } from "@/lib/utils";
@@ -8,6 +9,7 @@ import { ResearchLoop } from "@/components/research/ResearchLoop";
 import { BudgetProgress } from "@/components/research/BudgetProgress";
 
 export default function RunOverviewPage() {
+  const { t } = useI18n();
   const { run } = useOutletContext<{ run: ResearchRun }>();
   const { researchId = "" } = useParams();
 
@@ -26,55 +28,52 @@ export default function RunOverviewPage() {
   return (
     <div className="space-y-4">
       {/* A. Metric summary */}
-      <section aria-label="Metric summary">
-        <SectionTitle hint="absolute metric units; deltas are not relative percentages">
-          Metric summary
-        </SectionTitle>
+      <section aria-label={t("Metric summary")}>
+        <SectionTitle hint={t("absolute metric units; deltas are not relative percentages")}>
+          {t("Metric summary")}</SectionTitle>
         <MetricSummary
           baseline={run.baseline}
           best={best}
-          decision={run.decision ?? "PENDING"}
+          decision={run.decision ?? t("PENDING")}
         />
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* B. Research progress */}
-        <section aria-label="Research progress">
-          <Panel title="Research progress">
+        <section aria-label={t("Research progress")}>
+          <Panel title={t("Research progress")}>
             <KeyValue
               items={[
-                { key: "Iteration", value: `${run.iteration} of ${run.budget.max_iterations}` },
+                { key: t("Iteration"), value: `${run.iteration} of ${run.budget.max_iterations}` },
                 {
-                  key: "Experiments used",
+                  key: t("Experiments used"),
                   value: `${run.budget.experiments} of ${run.budget.max_experiments}`,
                 },
-                { key: "Failed experiments", value: String(run.budget.failed_experiments) },
-                { key: "Replans", value: `${run.budget.replans} of ${run.budget.max_replans}` },
-                { key: "Total experiment runtime", value: formatRuntime(totalRuntime || null) },
+                { key: t("Failed experiments"), value: String(run.budget.failed_experiments) },
+                { key: t("Replans"), value: `${run.budget.replans} of ${run.budget.max_replans}` },
+                { key: t("Total experiment runtime"), value: formatRuntime(totalRuntime || null) },
                 {
-                  key: "Termination",
+                  key: t("Termination"),
                   value: run.termination_reason ?? "—",
                 },
               ]}
             />
             <div className="mt-4 border-t border-line pt-4">
-              <p className="mb-2.5 text-xs font-medium text-muted">Budget consumption</p>
+              <p className="mb-2.5 text-xs font-medium text-muted">{t("Budget consumption")}</p>
               <BudgetProgress budget={run.budget} />
             </div>
           </Panel>
         </section>
 
         {/* D. Decision explanation */}
-        <section aria-label="Decision">
+        <section aria-label={t("Decision")}>
           <Panel
-            title="Decision"
+            title={t("Decision")}
             actions={run.decision ? <DecisionBadge decision={run.decision} /> : undefined}
           >
             {run.decisions.length === 0 ? (
               <p className="text-[13px] leading-relaxed text-muted">
-                No decision has been recorded yet. The decision engine runs after the analyze step
-                of the current iteration.
-              </p>
+                {t("No decision has been recorded yet. The decision engine runs after the analyze step of the current iteration.")}</p>
             ) : (
               <ol className="space-y-4">
                 {run.decisions.map((d, i) => (
@@ -85,44 +84,42 @@ export default function RunOverviewPage() {
                       <p className="mt-1 text-[11px] text-faint">
                         {d.improvement !== null && (
                           <>
-                            improvement{" "}
+                            {t("improvement")}{" "}
                             <span className="font-mono">{formatMetric(d.improvement)}</span> ·{" "}
                           </>
                         )}
-                        deterministic threshold comparison — not an LLM judgement
-                      </p>
+                        {t("deterministic threshold comparison — not an LLM judgement")}</p>
                     </div>
                   </li>
                 ))}
               </ol>
             )}
             <p className="mt-4 border-t border-line pt-3 text-[11px] leading-relaxed text-faint">
-              Policy: improvement ≥ min_delta ({run.baseline.min_delta}) → KEEP; regression ≥{" "}
-              {run.baseline.regression_delta} → REJECT; otherwise REPLAN if the budget allows.
-            </p>
+              {t("Policy: improvement ≥ min_delta (")}{" "}{run.baseline.min_delta}{t(") → KEEP; regression ≥")}{" "}
+              {run.baseline.regression_delta} {t("→ REJECT; otherwise REPLAN if the budget allows.")}</p>
           </Panel>
         </section>
       </div>
 
       {/* C. Research loop */}
-      <section aria-label="Research loop">
+      <section aria-label={t("Research loop")}>
         <Panel
-          title="Research loop"
+          title={t("Research loop")}
           actions={
             run.next_step !== "end" && (
-              <span className="font-mono text-[11px] text-muted">next step: {run.next_step}</span>
+              <span className="font-mono text-[11px] text-muted">{t("next step:")}{" "}{run.next_step}</span>
             )
           }
         >
-          <ResearchLoop nextStep={run.next_step} plannedPhases={[3, 5]} />
+          <ResearchLoop nextStep={run.next_step} />
         </Panel>
       </section>
 
       {/* Hypothesis + experiments shortcut */}
-      <section aria-label="Current hypothesis">
-        <Panel title="Current hypothesis">
+      <section aria-label={t("Current hypothesis")}>
+        <Panel title={t("Current hypothesis")}>
           {run.hypotheses.length === 0 ? (
-            <p className="text-[13px] text-muted">No hypothesis recorded in this state.</p>
+            <p className="text-[13px] text-muted">{t("No hypothesis recorded in this state.")}</p>
           ) : (
             <div className="space-y-3">
               {run.hypotheses.map((h) => (
@@ -130,24 +127,22 @@ export default function RunOverviewPage() {
                   <p className="text-[13px] font-medium leading-relaxed text-ink">{h.statement}</p>
                   <p className="mt-1.5 text-xs leading-relaxed text-muted">{h.motivation}</p>
                   <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 font-mono text-[11px] text-faint">
-                    <span>expected: {h.expected_effect}</span>
-                    <span>confidence: {h.confidence}</span>
-                    <span>status: {h.status}</span>
+                    <span>{t("expected:")}{" "}{h.expected_effect}</span>
+                    <span>{t("confidence:")}{" "}{h.confidence}</span>
+                    <span>{t("status:")}{" "}{t(h.status)}</span>
                   </div>
                 </div>
               ))}
             </div>
           )}
           <p className="mt-3 text-xs text-muted">
-            See{" "}
+            {t("See")}{" "}
             <Link
               to={`/runs/${researchId}/experiments`}
               className="font-medium text-accent-ink underline-offset-2 hover:underline"
             >
-              experiments
-            </Link>{" "}
-            for measured results behind the decision.
-          </p>
+              {t("experiments")}</Link>{" "}
+            {t("for measured results behind the decision.")}</p>
         </Panel>
       </section>
     </div>
