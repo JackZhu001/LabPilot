@@ -107,6 +107,9 @@ def evaluate_run(state: ResearchState) -> dict[str, Any]:
         )
         if state.execution.training_overrides
         else None,
+        "dataset": state.execution.dataset.model_dump(mode="json")
+        if state.execution.dataset
+        else None,
         "metric_name": state.baseline.metric_name,
         "direction": state.baseline.direction.value,
         "baseline": baseline,
@@ -385,6 +388,7 @@ def benchmark(states: Sequence[ResearchState]) -> dict[str, Any]:
         )
         context = {
             "executor": row["executor"],
+            "dataset": row["dataset"],
             "metric_name": row["metric_name"],
             "direction": row["direction"],
             "base_commit": state.execution.base_commit_sha,

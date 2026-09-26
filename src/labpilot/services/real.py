@@ -6,6 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 from uuid import uuid5
 
+from labpilot.execution.datasets import prepare_dataset
 from labpilot.execution.git import WorktreeManager, git
 from labpilot.execution.runner import DockerExperimentRunner
 from labpilot.hpo.models import TrialStatus
@@ -14,7 +15,12 @@ from labpilot.literature.providers import LiteratureProvider
 from labpilot.literature.semantic_scholar import SemanticScholarProvider
 from labpilot.llm.deepseek import DeepSeekLLMClient
 from labpilot.models.common import ExperimentStatus, Step
-from labpilot.models.execution import ExecutionConfig, ExecutionEnvironment, ExperimentPurpose
+from labpilot.models.execution import (
+    DatasetMetadata,
+    ExecutionConfig,
+    ExecutionEnvironment,
+    ExperimentPurpose,
+)
 from labpilot.models.experiments import (
     Baseline,
     CodePatch,
@@ -96,11 +102,20 @@ def configure_docker(
     build_image: bool = True,
     timeout_seconds: float = 180,
     training_command: tuple[str, ...] = ("python", "train.py"),
+    dataset: DatasetMetadata | None = None,
 ) -> ExecutionConfig:
     repo, runtime_root = repo.resolve(), runtime_root.resolve()
     manager = WorktreeManager(repo, runtime_root / "worktrees")
     sha = manager.validate_clean_baseline()
     diff = patch.read_text() if patch else predefined_dropout_patch(repo)
+    dataset_metadata = dataset or (
+        DatasetMetadata.model_validate_json((repo / "dataset.json").read_text())
+        if (repo / "dataset.json").is_file()
+        else None
+    )
+    dataset_cache_path = (
+        prepare_dataset(dataset_metadata, runtime_root) if dataset_metadata else None
+    )
     # Format/conflict validation happens inside the experiment so failures are durable results.
     return ExecutionConfig(
         environment=ExecutionEnvironment.DOCKER,
@@ -112,6 +127,8 @@ def configure_docker(
         build_image=build_image,
         timeout_seconds=timeout_seconds,
         training_command=training_command,
+        dataset=dataset_metadata,
+        dataset_cache_path=dataset_cache_path,
     )
 
 

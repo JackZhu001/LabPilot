@@ -81,14 +81,11 @@ quality or generalization.
   KEEP. These reuse the existing MNIST seeds and are a workflow/reproducibility check,
   not new independent evidence.
 
-## Phase 9 TODO: generalize beyond MNIST
+## Phase 9 follow-up
 
-1. Add a second supported dataset and make dataset identity, data split, and metric
-   explicit in the experiment manifest.
-2. Add dataset-specific validation for proposal overrides so unsupported settings are
-   rejected before training.
-3. Repeat source-linked multi-seed evaluation on that dataset and report paired
-   outcomes alongside MNIST; keep model promotion gated on measured evidence.
+Phase 9 delivered a second, source-linked benchmark on FashionMNIST. The dataset
+profile, metadata contract, and results are documented in [the Phase 9 report](phase9-report.md).
+The measured effect does not justify promoting the proposed setting.
 
 The failed setup and validation attempts are preserved in ignored local records under
 `.labpilot/phase8-deepseek/`. They produced no candidate metric included in the table.

@@ -32,9 +32,27 @@ class ExperimentPurpose(StrEnum):
     CANDIDATE = "CANDIDATE"
 
 
+class DatasetMetadata(DomainModel):
+    dataset_id: Literal["mnist", "fashion_mnist"]
+    name: Text
+    version: Text
+    split_policy: Text
+    metric_name: Literal["validation_accuracy"] = "validation_accuracy"
+    direction: Literal["maximize"] = "maximize"
+
+    @model_validator(mode="after")
+    def validate_profile_name(self) -> Self:
+        if self.name != {"mnist": "MNIST", "fashion_mnist": "FashionMNIST"}[self.dataset_id]:
+            raise ValueError("Dataset name does not match its supported profile")
+        return self
+
+
 class MetricMetadata(DomainModel):
     seed: NonNegative
     epochs: Annotated[int, Field(gt=0, strict=True)]
+    dataset_name: Text | None = None
+    dataset_version: Text | None = None
+    split_policy: Text | None = None
 
 
 class MetricReport(DomainModel):
@@ -52,6 +70,8 @@ class ExecutionConfig(DomainModel):
     runtime_root: Path = Path(".labpilot")
     patch_diff: RawText = ""
     training_overrides: TrainingOverrides | None = None
+    dataset: DatasetMetadata | None = None
+    dataset_cache_path: Path | None = None
     training_command: tuple[Text, ...] = ("python", "train.py")
     image: Text = "labpilot-mnist:phase2"
     build_image: bool = True
@@ -73,6 +93,10 @@ class ExecutionConfig(DomainModel):
                 )
             if self.runtime_root.is_relative_to(self.baseline_repo_path):
                 raise ValueError("Runtime directories must live outside the baseline repository")
+            if self.dataset_cache_path is not None and not self.dataset_cache_path.is_absolute():
+                raise ValueError("Dataset cache path must be absolute for reliable resume")
+            if self.dataset is not None and self.dataset_cache_path is None:
+                raise ValueError("Dataset profiles require a verified cache path")
         return self
 
 
@@ -116,6 +140,7 @@ class ExecutionProvenance(DomainModel):
     training_command: tuple[Text, ...]
     configuration_text: RawText | None = None
     training_overrides: TrainingOverrides | None = None
+    dataset: DatasetMetadata | None = None
     source_sha256: Text | None = None
     random_seed: NonNegative
     started_at: AwareDatetime

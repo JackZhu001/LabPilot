@@ -1,6 +1,8 @@
 """Coordinate an isolated worktree, Docker execution, and durable artifacts."""
 
 import logging
+import os
+import shutil
 import time
 
 from labpilot.execution.artifacts import ArtifactError, capture_source, create_artifacts
@@ -80,6 +82,12 @@ class DockerExperimentRunner:
             source_hash = capture_source(
                 path, self.worktrees.tracked_files(path), artifacts.source_path
             )
+            if config.dataset_cache_path is not None:
+                shutil.copytree(
+                    config.dataset_cache_path,
+                    artifacts.source_path / ".labpilot-dataset",
+                    copy_function=os.link,
+                )
             if experiment.config.overrides is not None:
                 parameter_path = artifacts.source_path / "labpilot-parameters.json"
                 if parameter_path.exists():
@@ -116,6 +124,17 @@ class DockerExperimentRunner:
                 )
                 if report.metadata is not None and report.metadata.seed != experiment.config.seed:
                     raise MetricsError("Reported random seed differs from the experiment seed")
+                if config.dataset is not None:
+                    if report.metadata is None:
+                        raise MetricsError("Dataset runs require versioned metric metadata")
+                    if (
+                        report.metadata.dataset_name != config.dataset.name
+                        or report.metadata.dataset_version != config.dataset.version
+                        or report.metadata.split_policy != config.dataset.split_policy
+                    ):
+                        raise MetricsError(
+                            "Reported dataset metadata differs from execution config"
+                        )
                 status = ExecutionStatus.SUCCEEDED
         except DockerError as exc:
             failure = str(exc)
@@ -153,6 +172,7 @@ class DockerExperimentRunner:
             training_command=config.training_command,
             configuration_text=configuration_text,
             training_overrides=experiment.config.overrides,
+            dataset=config.dataset,
             source_sha256=source_hash,
             random_seed=experiment.config.seed,
             started_at=started,

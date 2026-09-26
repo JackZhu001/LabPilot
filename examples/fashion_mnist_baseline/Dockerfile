@@ -4,7 +4,7 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 COPY download.py /tmp/download.py
 COPY dataset.json /tmp/dataset.json
-COPY .labpilot-dataset /datasets/MNIST
+COPY .labpilot-dataset /datasets/FashionMNIST
 RUN python /tmp/download.py
 WORKDIR /workspace
 CMD ["python", "train.py"]

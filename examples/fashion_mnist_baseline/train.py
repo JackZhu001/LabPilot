@@ -65,7 +65,7 @@ def main() -> None:
     dataset = dataset_class(
         "/datasets",
         train=True,
-        download=True,
+        download=False,
         transform=Compose([ToTensor(), Normalize(mean, std)]),
     )
     indices = torch.randperm(len(dataset), generator=torch.Generator().manual_seed(seed)).tolist()

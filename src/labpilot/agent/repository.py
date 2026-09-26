@@ -35,8 +35,9 @@ PRIORITY_NAMES = {
     "model.py": 2,
     "config.yaml": 3,
     "config.yml": 3,
-    "pyproject.toml": 4,
-    "requirements.txt": 5,
+    "dataset.json": 4,
+    "pyproject.toml": 5,
+    "requirements.txt": 6,
 }
 
 

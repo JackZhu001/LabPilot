@@ -16,7 +16,7 @@ export default function SystemPage() {
           <KeyValue
             columns={1}
             items={[
-              { key: t("Executors"), value: t("fake (offline), docker (isolated MNIST)") },
+              { key: t("Executors"), value: t("fake (offline), docker (isolated MNIST and FashionMNIST)") },
               { key: t("Container filesystem"), value: t("read-only root + source") },
               { key: t("Network"), value: <MonoValue>none</MonoValue> },
               { key: t("Resource limits"), value: <MonoValue>{t("2 CPU · 2048 MiB · PID cap")}</MonoValue> },
@@ -57,6 +57,8 @@ export default function SystemPage() {
               { key: t("Phase 6"), value: t("Snapshot reports and observational benchmarks") },
               { key: t("Phase 7"), value: t("Resumable multi-seed evaluations") },
               { key: t("Phase 8"), value: t("DeepSeek-assisted multi-seed campaigns") },
+              { key: t("Phase 9"), value: t("FashionMNIST source-linked evaluation") },
+              { key: t("Phase 10"), value: t("Next: datasets with different image shapes") },
             ]}
           />
         </Panel>

@@ -1,4 +1,4 @@
-"""Prepare a dataset from checksum-verified archives staged into the build context."""
+"""Download the selected dataset during image preparation, not training."""
 
 import json
 from pathlib import Path

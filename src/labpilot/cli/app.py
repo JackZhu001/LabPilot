@@ -414,6 +414,7 @@ def evaluate_command(
             or source.execution.base_commit_sha != execution.base_commit_sha
             or source.execution.image != execution.image
             or source.execution.training_command != execution.training_command
+            or source.execution.dataset != execution.dataset
         ):
             raise typer.BadParameter(
                 "Source must be completed CONFIG_ONLY run matching the goal, repository, "
@@ -454,6 +455,11 @@ def evaluate_command(
         )
         if execution.training_overrides
         else None,
+        **(
+            {"dataset": execution.dataset.model_dump(mode="json")}
+            if execution.dataset
+            else {}
+        ),
     }
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     if manifest_path.exists():

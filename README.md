@@ -10,7 +10,7 @@ decision to a measurable result.
 Literature → Evidence → Hypothesis → Experiment → Metric → Keep / Reject / Replan
 ```
 
-**Current scope: Phases 1–8 complete for the bounded MNIST workflow; Phase 9 targets additional datasets.** See the [Phase 8 results and Phase 9 TODO](docs/phase8-report.md). Fake mode
+**Current scope: Phases 1–9 complete for two bounded grayscale benchmarks; Phase 10 targets datasets with different input shapes.** See the [Phase 9 FashionMNIST report](docs/phase9-report.md). Fake mode
 preserves the fast offline fixtures. Agent mode uses a provider-independent typed
 interface with DeepSeek to inspect a bounded repository context, propose and plan a
 hypothesis, generate a validated patch when required, and explain the measured
@@ -21,7 +21,7 @@ selected hypothesis. Git, Docker, Optuna, and DecisionEngine retain execution au
 
 ## Explore the workbench
 
-[中文介绍](README.zh-CN.md) · [Quick start](#setup) · [Frontend setup](frontend/README.md) · [Phase 6 validation](docs/phase6-report.md) · [Phase 7 results](docs/phase7-report.md) · [Phase 8 results](docs/phase8-report.md)
+[中文介绍](README.zh-CN.md) · [Quick start](#setup) · [Frontend setup](frontend/README.md) · [Phase 6 validation](docs/phase6-report.md) · [Phase 7 results](docs/phase7-report.md) · [Phase 8 results](docs/phase8-report.md) · [Phase 9 FashionMNIST results](docs/phase9-report.md)
 
 ![LabPilot research workbench in English](docs/images/dashboard-en.png)
 
@@ -543,9 +543,9 @@ a PID limit, a temporary filesystem, and one writable output mount. Neither the
 Docker socket nor the baseline checkout is mounted. These controls use Docker's
 [documented container options](https://docs.docker.com/reference/cli/docker/container/run/).
 
-MNIST is cached in an image layer, verified by torchvision's dataset downloader,
-and opened with `download=False` during training. Dependencies and dataset
-preparation may use the network during builds. Direct Python dependencies are
+Dataset archives are downloaded and checksum-verified on the host, then staged into
+the image before training. Training containers keep `network=none`; only image setup
+and dependency installation may use the network. Direct Python dependencies are
 pinned; transitive dependencies and the base image tag are not fully locked.
 Actual image IDs and complete source snapshots identify the environment/code used
 for a measured result. This is not a promise of bit-level reproducibility across
@@ -746,7 +746,8 @@ BLOCKED at the retry cursor; invalid final structured output becomes FAILED.
 | **6** | Snapshot reports, observational benchmarks, and frontend integration — complete |
 | **7** | Resumable multi-seed evaluation runs and paired metric summaries — complete |
 | **8** | DeepSeek proposal handoff and multi-seed validation — complete |
-| 9 (next) | Second dataset, dataset-aware validation, and source-linked evaluation |
+| **9** | FashionMNIST profile and source-linked multi-seed evaluation — complete |
+| 10 (next) | Additional image shapes/channels and model-specific execution profiles |
 
 ### Remaining work
 
@@ -755,9 +756,10 @@ BLOCKED at the retry cursor; invalid final structured output becomes FAILED.
 - [x] Add resumable multi-seed evaluation command (Phase 7, first increment).
 - [x] Validate the resumable Docker evaluator across 8 seeds and two dropout settings (Phase 7).
 - [x] Run a bounded live DeepSeek experiment and hand its CONFIG_ONLY proposal into resumable multi-seed evaluation with source lineage (Phase 8).
-- [ ] Add a second dataset with explicit split and metric metadata (Phase 9).
-- [ ] Validate proposal overrides against dataset capabilities before training.
-- [ ] Run source-linked multi-seed evaluation on the second dataset before making broader claims.
+- [x] Add MNIST and FashionMNIST profiles with explicit versions, splits, and metrics (Phase 9).
+- [x] Reject unsupported dataset profiles and mismatched reported metadata.
+- [x] Run DeepSeek-source-linked FashionMNIST evaluation across 8 seeds; record uncertainty without promoting the intervention.
+- [ ] Add support for a dataset with different image dimensions or channels (Phase 10).
 
 
 ## Reports and evaluation (Phase 6)
@@ -825,6 +827,6 @@ labpilot evaluate --seeds 42,43,44 \
   --from-run RUN_ID
 ```
 
-Phase 9 TODO: add a second dataset with explicit split and metric metadata, validate
-proposal overrides against dataset capabilities, and repeat the source-linked
-multi-seed comparison before drawing conclusions beyond MNIST.
+Phase 9 added FashionMNIST with dataset-aware validation and a source-linked 8-seed
+evaluation. See [the Phase 9 report](docs/phase9-report.md). Phase 10 should support
+an image dataset with different dimensions or channels and an appropriate model profile.

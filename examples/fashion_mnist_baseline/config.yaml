@@ -1,0 +1,10 @@
+seed: 42
+epochs: 2
+batch_size: 64
+learning_rate: 0.001
+hidden_dim: 128
+dropout: 0.0
+train_samples: 10000
+validation_samples: 2000
+primary_metric: validation_accuracy
+direction: maximize

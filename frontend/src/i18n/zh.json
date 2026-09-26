@@ -384,7 +384,7 @@
   "Commit SHA": "提交 SHA",
   "Trial number": "试验编号",
   "Use 中文 / EN in the top bar to switch languages. Use the animation button to pause all motion. Preferences are saved on this device. Research content and exported snapshots stay in their original language.": "使用顶栏的中文 / EN 按钮切换语言，使用动画按钮暂停全部动态效果。偏好保存在本设备上，研究内容与导出快照保留原始语言。",
-  "fake (offline), docker (isolated MNIST)": "模拟（离线）、Docker（隔离的 MNIST 实验）",
+  "fake (offline), docker (isolated MNIST and FashionMNIST)": "模拟（离线）、Docker（隔离的 MNIST 与 FashionMNIST 实验）",
   "read-only root + source": "只读根文件系统与源码",
   "detached, UUID-named, cleanup verified": "分离式工作树，以 UUID 命名并验证清理结果",
   "one revision per completed step": "每完成一个步骤保存一个版本",
@@ -416,5 +416,9 @@
   "Phase 7": "阶段 7",
   "Resumable multi-seed evaluations": "可恢复的多随机种子评估",
   "Phase 8": "阶段 8",
-  "DeepSeek-assisted multi-seed campaigns": "DeepSeek 辅助的多种子实验"
+  "DeepSeek-assisted multi-seed campaigns": "DeepSeek 辅助的多种子实验",
+  "Phase 9": "阶段 9",
+  "FashionMNIST source-linked evaluation": "FashionMNIST 来源可追溯评估",
+  "Phase 10": "阶段 10",
+  "Next: datasets with different image shapes": "下一步：支持图像尺寸不同的数据集"
 }
