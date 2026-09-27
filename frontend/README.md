@@ -35,7 +35,7 @@ cd frontend && npm run dev
 
 Vite forwards `/api` to `http://127.0.0.1:8000`. Set `VITE_LABPILOT_API_URL`
 for another API address, or `VITE_LABPILOT_USE_MOCKS=true` to show fixtures
-without an API. The API is read-only; create and resume runs with the CLI.
+without an API. The API supports previewing and creating runs; resume runs with the CLI.
 
 ## Architecture
 
@@ -78,7 +78,7 @@ mock environment flag is set.
 
 ## Backend data routes
 
-The read-only API serves:
+The API serves read routes and accepts preview and create requests:
 
 - `getRuns()` → list of run summaries (ResearchState metadata)
 - `getAllRuns()` / `getRun(id)` → full ResearchState

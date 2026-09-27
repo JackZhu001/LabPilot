@@ -226,6 +226,15 @@ export interface Evidence {
   target_hypothesis_id?: string | null;
   source_span?: string | null;
   applicability_notes?: string | null;
+  jev_assessment?: {
+    model: string;
+    relation_confidence: number;
+    strength: number;
+    relevance_probability: number;
+    input_tokens: number;
+    output_tokens: number;
+    cost_usd: number;
+  } | null;
 }
 
 export interface Hypothesis {

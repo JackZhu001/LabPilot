@@ -33,7 +33,7 @@ class ExperimentPurpose(StrEnum):
 
 
 class DatasetMetadata(DomainModel):
-    dataset_id: Literal["mnist", "fashion_mnist"]
+    dataset_id: Literal["mnist", "fashion_mnist", "cifar10"]
     name: Text
     version: Text
     split_policy: Text
@@ -42,7 +42,11 @@ class DatasetMetadata(DomainModel):
 
     @model_validator(mode="after")
     def validate_profile_name(self) -> Self:
-        if self.name != {"mnist": "MNIST", "fashion_mnist": "FashionMNIST"}[self.dataset_id]:
+        if self.name != {
+            "mnist": "MNIST",
+            "fashion_mnist": "FashionMNIST",
+            "cifar10": "CIFAR10",
+        }[self.dataset_id]:
             raise ValueError("Dataset name does not match its supported profile")
         return self
 

@@ -14,6 +14,7 @@ from uuid import UUID, uuid4, uuid5
 import typer
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
+from typesafe_sdk import Choice, Noul, Score, TypeSafeClient, TypeSafeError
 
 from labpilot.api import serve
 from labpilot.execution.git import GitError
@@ -289,6 +290,68 @@ def prepare_example_command(
     except (OSError, ValueError, GitError) as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1) from exc
+
+
+@app.command("judge-evidence")
+def judge_evidence(
+    hypothesis: Annotated[str, typer.Option(help="Research hypothesis to assess.")],
+    claim: Annotated[str, typer.Option(help="A claim or excerpt from a paper.")],
+    model: Annotated[str, typer.Option(help="Pinned TypeSafe model version.")] = "jev-latest",
+) -> None:
+    """Use Jev to classify literature evidence; this does not decide experiment outcomes."""
+    state = {"hypothesis": hypothesis, "paper_claim": claim}
+    if len(json.dumps(state, ensure_ascii=False)) > 7_500:
+        raise typer.BadParameter(
+            "Combined hypothesis and claim must be under 7,500 JSON characters"
+        )
+    try:
+        with TypeSafeClient() as client:
+            response = client.system_one(
+                state=state,
+                model=model,
+                questions={
+                    "relation": Choice(
+                        instructions="How does this paper claim relate to the hypothesis?",
+                        criteria={
+                            "supports": "Provides evidence in favor of the hypothesis",
+                            "contradicts": "Provides evidence against the hypothesis",
+                            "mixed": "Contains both supporting and contradicting evidence",
+                            "unclear": "The claim does not establish a clear relation",
+                        },
+                    ),
+                    "strength": Score(
+                        instructions=(
+                            "Rate this claim's evidence strength, considering specificity and"
+                            " directness."
+                        ),
+                        criteria=["very weak", "weak", "moderate", "strong", "very strong"],
+                    ),
+                    "relevant": Noul(
+                        instructions=(
+                            "Does the paper claim materially address the stated hypothesis?"
+                        )
+                    ),
+                },
+            )
+    except TypeSafeError as exc:
+        typer.echo(f"Jev request failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(
+        json.dumps(
+            {
+                "model": response.model,
+                "relation": response.choices["relation"].choice,
+                "relation_confidence": response.choices["relation"].confidence,
+                "strength": response.scores["strength"].score,
+                "strength_confidence": response.scores["strength"].confidence,
+                "relevance_probability": response.nouls["relevant"].noul,
+                "usage": response.usage.model_dump(),
+                "note": "Advisory literature triage only; verify against the cited source.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
 
 
 @app.command()

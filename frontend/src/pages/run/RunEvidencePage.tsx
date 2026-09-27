@@ -81,6 +81,7 @@ export default function RunEvidencePage() {
                                   <span className="ml-auto font-mono text-[11px] text-faint">
                                     {t("confidence")}{" "}{ev.confidence}
                                   </span>
+                                  {ev.jev_assessment && <span className="basis-full text-[11px] text-muted">Jev · {ev.jev_assessment.model} · {t("strength")}: {ev.jev_assessment.strength}/4 · {t("relevance")}: {Math.round(ev.jev_assessment.relevance_probability * 100)}% · {t("tokens")}: {ev.jev_assessment.input_tokens + ev.jev_assessment.output_tokens} · ${ev.jev_assessment.cost_usd.toFixed(6)}</span>}
                                 </li>
                               ))}
                           </ul>

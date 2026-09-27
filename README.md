@@ -2,7 +2,7 @@
 
 **Autonomous ML Research & Experimentation Agent**
 
-[中文说明](README.zh-CN.md) · [Quick start](#setup) · [Research workflow](#custom-research-workflow) · [Phase 9 results](docs/phase9-report.md)
+[中文说明](README.zh-CN.md) · [Quick start](#setup) · [Research workflow](#custom-research-workflow) · [Phase 10 results](docs/phase10-report.md)
 
 LabPilot aims to make ML research reproducible, traceable, and bounded: every
 hypothesis should connect to evidence, every experiment to a hypothesis, and every
@@ -12,7 +12,7 @@ decision to a measurable result.
 Literature → Evidence → Hypothesis → Experiment → Metric → Keep / Reject / Replan
 ```
 
-**Current scope: Phases 1–9 complete for two bounded grayscale benchmarks; Phase 10 targets datasets with different input shapes.** See the [Phase 9 FashionMNIST report](docs/phase9-report.md). Fake mode
+**Current scope: Phases 1–10 complete for three bounded image benchmarks.** Phase 10 adds CIFAR-10 (32×32 RGB), a dedicated CNN profile, and an 11-seed Docker evaluation. Across the expanded eight-seed batch, dropout 0.3 averaged −0.0123 paired accuracy change (sample SD 0.0126), so this setup showed no stable gain. See the [Phase 10 report](docs/phase10-report.md). Fake mode
 preserves the fast offline fixtures. Agent mode uses a provider-independent typed
 interface with DeepSeek to inspect a bounded repository context, propose and plan a
 hypothesis, generate a validated patch when required, and explain the measured
@@ -93,6 +93,8 @@ chatbot roles.
   hypothesis, study, trial, and experiment identifiers.
 - Local HTTP API for creating research runs and viewing run, experiment, HPO,
   evidence, activity, state, and artifact data.
+- OpenRouter Jev Decisions API assessment of a paper claim, with relation,
+  strength, relevance probability, token usage and cost.
 
 ## Custom research workflow
 
@@ -102,6 +104,27 @@ previews the literature-search budget, experiment limit, allowed change scope,
 and objective metric. Confirm the plan to start a DeepSeek-backed run using the
 selected maximize/minimize metric; Docker executes the experiments in isolation.
 See [frontend setup](frontend/README.md) for running the workbench locally.
+
+### Jev evidence triage
+
+The new-research form can use Jev through OpenRouter's Decisions API. Select
+Jev under “Evidence assessment” to save its relation, relevance, strength, token
+usage, and cost alongside each cited claim. The backend needs an
+`OPENROUTER_API_KEY` environment variable; preview checks for it. OpenRouter's
+model ID is pinned to `typesafe/jev-1.13`. A separate CLI command uses the
+official TypeSafe SDK directly:
+
+```bash
+export TYPESAFE_API_KEY="your-key"
+labpilot judge-evidence --hypothesis "Dropout improves validation accuracy" \
+  --claim "The method reduced overfitting and improved held-out accuracy."
+```
+
+That standalone command needs `TYPESAFE_API_KEY`. Jev is hosted and needs
+network access; no local model runtime is required. Its result is advisory and
+does not replace source verification or LabPilot's numerical experiment
+decision. See the [OpenRouter Jev guide](https://openrouter.ai/blog/tutorials/how-to-use-jev/)
+and [official Python SDK](https://github.com/typesafe-ai/typesafe-sdk-python).
 
 Docker mode adds `ExecutionEnvironment`, `ExecutionStatus`, `ExperimentArtifact`,
 `GitMetadata`, `DockerMetadata`, `MetricReport`, and `ExecutionProvenance`. Supplied
@@ -764,7 +787,7 @@ BLOCKED at the retry cursor; invalid final structured output becomes FAILED.
 | **7** | Resumable multi-seed evaluation runs and paired metric summaries — complete |
 | **8** | DeepSeek proposal handoff and multi-seed validation — complete |
 | **9** | FashionMNIST profile and source-linked multi-seed evaluation — complete |
-| 10 (next) | Additional image shapes/channels and model-specific execution profiles |
+| **10** | CIFAR-10 RGB profile, CNN baseline and 11-seed Docker evaluation — complete |
 
 ### Remaining work
 
@@ -776,7 +799,8 @@ BLOCKED at the retry cursor; invalid final structured output becomes FAILED.
 - [x] Add MNIST and FashionMNIST profiles with explicit versions, splits, and metrics (Phase 9).
 - [x] Reject unsupported dataset profiles and mismatched reported metadata.
 - [x] Run DeepSeek-source-linked FashionMNIST evaluation across 8 seeds; record uncertainty without promoting the intervention.
-- [ ] Add support for a dataset with different image dimensions or channels (Phase 10).
+- [x] Add a 32×32 RGB CIFAR-10 profile with a model-specific CNN baseline and verified dataset cache (Phase 10).
+- [x] Complete a source-linked CIFAR-10 Docker evaluation across 11 fixed seeds and record uncertainty (Phase 10 validation).
 
 
 ## Reports and evaluation (Phase 6)
@@ -845,5 +869,9 @@ labpilot evaluate --seeds 42,43,44 \
 ```
 
 Phase 9 added FashionMNIST with dataset-aware validation and a source-linked 8-seed
-evaluation. See [the Phase 9 report](docs/phase9-report.md). Phase 10 should support
-an image dataset with different dimensions or channels and an appropriate model profile.
+evaluation. Phase 10 adds CIFAR-10's 32×32 RGB input through a dedicated CNN profile;
+its verified archive is prepared on the host so training containers remain network
+isolated. Across the expanded eight-seed batch, dropout 0.3 shows a mean paired
+change of −0.0123 with a sample standard deviation of 0.0126, which does not
+support a stable improvement claim;
+see [the Phase 10 report](docs/phase10-report.md).

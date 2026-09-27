@@ -49,6 +49,7 @@ export async function createResearchRun(input: {
   change_type: "CONFIG_ONLY" | "CODE_CHANGE" | null;
   metric_name: string;
   direction: "MAXIMIZE" | "MINIMIZE";
+  evidence_judge: "deepseek" | "jev";
 }): Promise<{ research_id: string; status: string }> {
   if (USE_MOCKS) throw new Error("Creating research requires the live API.");
   const response = await fetch(`${API}/runs`, {
@@ -66,7 +67,8 @@ export interface ResearchPlanPreview {
   baseline: { name: string; commit_sha: string; file_count: number; important_files: string[] };
   objective: { metric_name: string; direction: "MAXIMIZE" | "MINIMIZE" };
   papers: string[];
-  literature: { providers: string[]; max_queries: number; max_papers: number };
+  literature: { providers: string[]; max_queries: number; max_papers: number; evidence_judge: "deepseek" | "jev" };
+  evidence_judge_ready: boolean;
   seed: number;
   constraints: string;
   max_iterations: number;
@@ -87,6 +89,7 @@ export async function getResearchPreview(input: {
   change_type: "CONFIG_ONLY" | "CODE_CHANGE" | null;
   metric_name: string;
   direction: "MAXIMIZE" | "MINIMIZE";
+  evidence_judge: "deepseek" | "jev";
 }): Promise<ResearchPlanPreview> {
   if (USE_MOCKS) throw new Error("Research preview requires the live API.");
   const response = await fetch(`${API}/research-preview`, {

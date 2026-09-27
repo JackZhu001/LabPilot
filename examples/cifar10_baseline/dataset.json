@@ -1,0 +1,8 @@
+{
+  "dataset_id": "cifar10",
+  "name": "CIFAR10",
+  "version": "torchvision-0.20.1 train split",
+  "split_policy": "For each seed, seeded permutation of the train split; first 10000 train, next 2000 validation.",
+  "metric_name": "validation_accuracy",
+  "direction": "maximize"
+}

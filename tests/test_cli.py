@@ -55,3 +55,39 @@ def test_cli_bad_input(tmp_path: Path) -> None:
     ]:
         result = runner.invoke(app, [*args, "--db", db])
         assert result.exit_code != 0 and "Error" in result.output
+
+
+def test_judge_evidence_calls_jev_and_returns_typed_result(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    class Usage:
+        def model_dump(self):
+            return {"input_tokens": 50, "output_tokens": 12}
+
+    class Client:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def system_one(self, **kwargs):
+            assert kwargs["model"] == "jev-latest"
+            assert set(kwargs["questions"]) == {"relation", "strength", "relevant"}
+            return SimpleNamespace(
+                model="jev-latest",
+                usage=Usage(),
+                choices={"relation": SimpleNamespace(choice="supports", confidence=0.9)},
+                scores={"strength": SimpleNamespace(score=3.7, confidence=0.8)},
+                nouls={"relevant": SimpleNamespace(noul=0.96)},
+            )
+
+    monkeypatch.setattr("labpilot.cli.app.TypeSafeClient", Client)
+    result = runner.invoke(
+        app,
+        ["judge-evidence", "--hypothesis", "dropout helps", "--claim", "Accuracy rose."],
+    )
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.output)
+    assert report["relation"] == "supports" and report["strength"] == 3.7
+    assert report["relevance_probability"] == 0.96

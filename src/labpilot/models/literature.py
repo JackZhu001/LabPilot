@@ -26,6 +26,7 @@ class LiteratureSettings(DomainModel):
         "semantic_scholar",
     )
     max_claims_per_paper: int = Field(default=3, ge=1, le=3)
+    evidence_judge: Literal["deepseek", "jev"] = "deepseek"
 
 
 class LiteratureQueryDraft(DomainModel):
@@ -134,6 +135,16 @@ class EvidenceSynthesis(DomainModel):
     gaps: tuple[Text, ...] = ()
 
 
+class JevEvidenceAssessment(DomainModel):
+    model: Text
+    relation_confidence: Confidence
+    strength: Annotated[float, Field(ge=0, le=4)]
+    relevance_probability: Annotated[float, Field(ge=0, le=1)]
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+    cost_usd: float = Field(default=0, ge=0)
+
+
 class Evidence(DomainModel):
     id: UUID = Field(default_factory=uuid4)
     claim_id: UUID
@@ -144,6 +155,7 @@ class Evidence(DomainModel):
     confidence: Confidence
     source_span: Text | None = None
     applicability_notes: Text | None = None
+    jev_assessment: JevEvidenceAssessment | None = None
 
 
 class GroundedHypothesisProposal(DomainModel):

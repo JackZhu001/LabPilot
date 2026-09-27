@@ -23,6 +23,7 @@ export default function NewResearchPage() {
   const [seed, setSeed] = useState(42);
   const [queryCount, setQueryCount] = useState(2);
   const [paperLimit, setPaperLimit] = useState(6);
+  const [evidenceJudge, setEvidenceJudge] = useState<"deepseek" | "jev">("deepseek");
   const [papers, setPapers] = useState<File[]>([]);
   const [preview, setPreview] = useState<ResearchPlanPreview | null>(null);
   const [error, setError] = useState("");
@@ -47,6 +48,7 @@ export default function NewResearchPage() {
         max_retrieved_papers: paperLimit, seed, constraints,
         change_type: changeType || null,
         metric_name: metricName === "custom" ? customMetric : metricName, direction,
+        evidence_judge: evidenceJudge,
       }));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("Could not prepare research preview."));
@@ -73,6 +75,7 @@ export default function NewResearchPage() {
         max_literature_queries: queryCount, max_retrieved_papers: paperLimit,
         seed, constraints, change_type: changeType || null,
         metric_name: metricName === "custom" ? customMetric : metricName, direction,
+        evidence_judge: evidenceJudge,
       });
       navigate(`/runs/${run.research_id}`);
     } catch (cause) {
@@ -142,6 +145,7 @@ export default function NewResearchPage() {
                 <div><label htmlFor="seed" className="mb-2 block text-sm font-medium text-ink">{t("Random seed")}</label><input id="seed" type="number" min={0} max={4294967295} step={1} value={seed} onChange={(event) => setSeed(Number(event.target.value))} className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 font-mono text-sm text-ink outline-none focus:border-accent" /><p className="mt-1 text-xs text-muted">{t("Recorded with every experiment for reproducibility.")}</p></div>
                 <div><label htmlFor="query-count" className="mb-2 block text-sm font-medium text-ink">{t("Literature searches")}</label><select id="query-count" value={queryCount} onChange={(event) => setQueryCount(Number(event.target.value))} className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option></select></div>
                 <div><label htmlFor="paper-limit" className="mb-2 block text-sm font-medium text-ink">{t("Maximum papers to retrieve")}</label><select id="paper-limit" value={paperLimit} onChange={(event) => setPaperLimit(Number(event.target.value))} className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"><option value={3}>3</option><option value={6}>6</option><option value={10}>10</option></select><p className="mt-1 text-xs text-muted">{t("Uploaded papers are additional to this limit.")}</p></div>
+                <div><label htmlFor="evidence-judge" className="mb-2 block text-sm font-medium text-ink">{t("Evidence assessment")}</label><select id="evidence-judge" value={evidenceJudge} onChange={(event) => setEvidenceJudge(event.target.value as "deepseek" | "jev")} className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"><option value="deepseek">DeepSeek</option><option value="jev">Jev</option></select><p className="mt-1 text-xs text-muted">{t("Jev adds a separate evidence relevance and strength assessment.")}</p></div>
               </div>
             </div>
           </details>
@@ -184,7 +188,7 @@ export default function NewResearchPage() {
         {preview.warnings.length > 0 && <div className="mt-5 rounded-lg border border-warning/30 bg-warning-soft p-3 text-sm text-ink"><p className="font-medium">{t("Baseline checks")}</p><ul className="mt-2 list-inside list-disc text-xs">{preview.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div>}
         <div className="mt-6 flex flex-wrap gap-3">
           <button type="button" disabled={busy} onClick={() => { setPreview(null); setError(""); }} className="secondary-button"><ArrowLeft size={15} />{t("Edit brief")}</button>
-          <button type="button" disabled={busy} onClick={startResearch} className="primary-button disabled:opacity-50">{busy ? <LoaderCircle size={16} className="animate-spin" /> : <Check size={16} />}{busy ? t("Starting research…") : t("Confirm and start")}</button>
+          <button type="button" disabled={busy || !preview.evidence_judge_ready} onClick={startResearch} className="primary-button disabled:opacity-50">{busy ? <LoaderCircle size={16} className="animate-spin" /> : <Check size={16} />}{busy ? t("Starting research…") : t("Confirm and start")}</button>
         </div>
       </Panel></div>}
     </>

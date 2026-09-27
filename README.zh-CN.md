@@ -82,11 +82,23 @@ labpilot benchmark --db .labpilot/labpilot.sqlite3 --format json > benchmark.jso
 
 ## 当前进度与边界
 
-Phase 1–9 已完成两个有界灰度图像基准；Phase 10 将支持不同输入尺寸或通道数的数据集。Phase 8 已支持将 DeepSeek 的 CONFIG_ONLY 方案直接交给可续跑的多种子评估；Phase 9 在 FashionMNIST 上完成了来源可追溯的 8 种子运行。MNIST 的 dropout 提案平均收益为负；FashionMNIST 提案均值略正但波动很大，均不足以证明稳定改进。详见 [Phase 7 实测记录](docs/phase7-report.md)、[Phase 8 结果](docs/phase8-report.md) 和 [Phase 9 FashionMNIST 报告](docs/phase9-report.md)。截图为本地演示运行，结果不代表通用能力。
+Phase 1–10 已实现三个有界图像基准。Phase 10 新增 32×32 RGB CIFAR-10 专用 CNN 和校验后的离线 Docker 数据集缓存，并在固定镜像上完成 3 种子与扩展 8 种子评估。扩展批次配对变化均值 −0.0123，样本标准差 0.0126；当前不支持 dropout 在此训练配置下有稳定收益的结论。Phase 8 已支持将 DeepSeek 的 CONFIG_ONLY 方案直接交给可续跑的多种子评估；Phase 9 在 FashionMNIST 上完成了来源可追溯的 8 种子运行。详见 [Phase 7 实测记录](docs/phase7-report.md)、[Phase 8 结果](docs/phase8-report.md)、[Phase 9 FashionMNIST 报告](docs/phase9-report.md) 和 [Phase 10 CIFAR-10 报告](docs/phase10-report.md)。截图为本地演示运行，结果不代表通用能力。
 
 评估已完成的 DeepSeek 配置方案时，可通过 `labpilot evaluate --from-run RUN_ID` 直接复用，不必手动重建参数。来源运行、仓库提交、镜像标识和训练命令必须匹配；运行清单和报告会保留来源 ID 与候选配置。
 
-Phase 10 TODO：支持尺寸或通道数不同的图像数据集及相应模型配置，再对其执行来源可追溯的多种子比较。
+### Jev 文献证据判断
+
+新建研究时可将“证据评估方式”设为 Jev，通过 OpenRouter Decisions API 评估，并将关系、0–4 证据强度、相关概率、token 用量和费用保存到证据记录。服务端需要设置 `OPENROUTER_API_KEY`，预览会检查它是否存在；模型固定为 `typesafe/jev-1.13`。另有 CLI 命令可通过 TypeSafe 官方 Python SDK 直连：
+
+```bash
+export TYPESAFE_API_KEY="your-key"
+labpilot judge-evidence --hypothesis "Dropout improves validation accuracy" \
+  --claim "The method reduced overfitting and improved held-out accuracy."
+```
+
+该独立 CLI 命令需要 `TYPESAFE_API_KEY`。Jev 是托管 API，需要网络，不需要本地模型 runtime。评估结果用于文献初筛，不能替代原文核验，也不会改变 LabPilot 基于实验指标作出的决策。详见 [OpenRouter Jev 指南](https://openrouter.ai/blog/tutorials/how-to-use-jev/) 与[官方 Python SDK](https://github.com/typesafe-ai/typesafe-sdk-python)。
+
+Phase 10 的 CIFAR-10 基准已完成 11 个固定种子的 Docker 评估；dropout 0.3 在扩展批次的 8 个种子上均未达到 KEEP 条件。详见 [Phase 10 报告](docs/phase10-report.md)。
 
 历史运行对比属于观察性统计，不证明文献策略的因果收益。项目是有边界的研究自动化系统，目前不应宣称已经实现递归自我改进（RSI）。
 

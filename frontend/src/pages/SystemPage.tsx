@@ -16,7 +16,7 @@ export default function SystemPage() {
           <KeyValue
             columns={1}
             items={[
-              { key: t("Executors"), value: t("fake (offline), docker (isolated MNIST and FashionMNIST)") },
+              { key: t("Executors"), value: t("fake (offline), docker (isolated MNIST, FashionMNIST and CIFAR-10)") },
               { key: t("Container filesystem"), value: t("read-only root + source") },
               { key: t("Network"), value: <MonoValue>none</MonoValue> },
               { key: t("Resource limits"), value: <MonoValue>{t("2 CPU · 2048 MiB · PID cap")}</MonoValue> },

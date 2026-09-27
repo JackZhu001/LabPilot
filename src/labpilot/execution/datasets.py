@@ -2,7 +2,9 @@
 
 import hashlib
 import os
+import shutil
 import subprocess
+import tarfile
 from pathlib import Path
 
 from labpilot.models.execution import DatasetMetadata
@@ -30,16 +32,78 @@ _DATASETS = {
     ),
 }
 
+_CIFAR10_FILES = (
+    ("data_batch_1", "c99cafc152244af753f735de768cd75f"),
+    ("data_batch_2", "d4bba439e000b95fd0a9bffe97cbabec"),
+    ("data_batch_3", "54ebc095f3ab1f0389bbae665268c751"),
+    ("data_batch_4", "634d18415352ddfa80567beed471001a"),
+    ("data_batch_5", "482c414d41f54cd18b22e5b47cb7c3cb"),
+    ("test_batch", "40351d587109b95175f43aff81a1287e"),
+    ("batches.meta", "5ff9c542aee3614f3951f8cda6e48888"),
+)
+
+
+def _md5(path: Path) -> str:
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "md5").hexdigest()
+
 
 def prepare_dataset(metadata: DatasetMetadata, runtime_root: Path) -> Path:
-    """Fetch/checksum raw IDX archives on the host; Docker builds need no network."""
-    folder, base_url, resources = _DATASETS[metadata.dataset_id]
+    """Fetch/checksum data on the host; Docker builds need no network."""
+    folder = "CIFAR10" if metadata.dataset_id == "cifar10" else _DATASETS[metadata.dataset_id][0]
     dataset_root = runtime_root / "datasets" / folder
     raw = dataset_root / "raw"
     raw.mkdir(parents=True, exist_ok=True)
+    if metadata.dataset_id == "cifar10":
+        extracted = dataset_root / "cifar-10-batches-py"
+        if all(
+            (extracted / name).is_file() and _md5(extracted / name) == digest
+            for name, digest in _CIFAR10_FILES
+        ):
+            return dataset_root
+        # The archive is byte-for-byte pinned by the upstream/torchvision MD5.
+        url = "https://dataset.bj.bcebos.com/cifar/cifar-10-python.tar.gz"
+        filename = "cifar-10-python.tar.gz"
+        expected = "c58f30108f718f92721af3b95e74349a"
+        archive = raw / filename
+        if not archive.is_file() or _md5(archive) != expected:
+            temporary = archive.with_suffix(".part")
+            try:
+                result = subprocess.run(
+                    [
+                        "curl", "--location", "--fail", "--silent", "--show-error",
+                        "--max-time", "300", url, "--output", str(temporary),
+                    ],
+                    capture_output=True, text=True, timeout=310, check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                temporary.unlink(missing_ok=True)
+                raise RuntimeError(f"Could not download dataset file {filename}: {exc}") from exc
+            if result.returncode:
+                temporary.unlink(missing_ok=True)
+                raise RuntimeError(result.stderr.strip() or f"Could not download {filename}")
+            if _md5(temporary) != expected:
+                temporary.unlink(missing_ok=True)
+                raise ValueError(f"Dataset checksum mismatch: {filename}")
+            os.replace(temporary, archive)
+        with tarfile.open(archive, "r:gz") as bundle:
+            members = bundle.getmembers()
+            target = dataset_root.resolve()
+            if any(
+                not (member.isfile() or member.isdir())
+                or not (target / member.name).resolve().is_relative_to(target)
+                for member in members
+            ):
+                raise ValueError("Dataset archive contains unsafe paths")
+            shutil.rmtree(extracted, ignore_errors=True)
+            bundle.extractall(dataset_root, members=members)
+        archive.unlink()
+        return dataset_root
+
+    _, base_url, resources = _DATASETS[metadata.dataset_id]
     for filename, expected in resources:
         target = raw / filename
-        if target.is_file() and hashlib.md5(target.read_bytes()).hexdigest() == expected:
+        if target.is_file() and _md5(target) == expected:
             continue
         temporary = target.with_suffix(target.suffix + ".part")
         try:
@@ -66,8 +130,7 @@ def prepare_dataset(metadata: DatasetMetadata, runtime_root: Path) -> Path:
         if result.returncode != 0:
             temporary.unlink(missing_ok=True)
             raise RuntimeError(result.stderr.strip() or f"Could not download {filename}")
-        with temporary.open("rb") as downloaded:
-            digest = hashlib.file_digest(downloaded, "md5").hexdigest()
+        digest = _md5(temporary)
         if digest != expected:
             temporary.unlink(missing_ok=True)
             raise ValueError(f"Dataset checksum mismatch: {filename}")

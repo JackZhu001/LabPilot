@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -161,6 +162,9 @@ def research_preview(payload: dict[str, Any]) -> dict[str, Any]:
     max_papers = payload.get("max_retrieved_papers", 6)
     if isinstance(max_papers, bool) or not isinstance(max_papers, int) or not 1 <= max_papers <= 10:
         raise ValueError("Retrieved paper limit must be between one and ten")
+    evidence_judge = payload.get("evidence_judge", "deepseek")
+    if evidence_judge not in {"deepseek", "jev"}:
+        raise ValueError("Evidence judge must be deepseek or jev")
     iterations = payload.get("max_iterations", 3)
     if isinstance(iterations, bool) or not isinstance(iterations, int) or not 1 <= iterations <= 3:
         raise ValueError("Research depth must be between one and three iterations")
@@ -212,9 +216,9 @@ def research_preview(payload: dict[str, Any]) -> dict[str, Any]:
             "No dataset.json was found; the baseline must handle its data setup itself."
         )
     if repo_value and metric_name not in {"validation_accuracy", "validation_loss"}:
-        warnings.append(
-            "The custom runner must write this metric to outputs/metrics.json."
-        )
+        warnings.append("The custom runner must write this metric to outputs/metrics.json.")
+    if evidence_judge == "jev" and not os.getenv("OPENROUTER_API_KEY"):
+        warnings.append("Jev selected, but OPENROUTER_API_KEY is not configured; run cannot start.")
     return {
         "goal": goal,
         "constraints": constraints,
@@ -230,7 +234,9 @@ def research_preview(payload: dict[str, Any]) -> dict[str, Any]:
             "providers": ["arxiv", "semantic_scholar"],
             "max_queries": max_queries,
             "max_papers": max_papers,
+            "evidence_judge": evidence_judge,
         },
+        "evidence_judge_ready": evidence_judge != "jev" or bool(os.getenv("OPENROUTER_API_KEY")),
         "seed": seed,
         "max_iterations": iterations,
         "max_experiments": iterations + 1,
@@ -336,6 +342,11 @@ def handler_for(
                 goal = str(payload.get("goal", "")).strip()
                 if not goal or len(goal) > 1000:
                     raise ValueError("Research topic must contain 1–1000 characters")
+                evidence_judge = payload.get("evidence_judge", "deepseek")
+                if evidence_judge not in {"deepseek", "jev"}:
+                    raise ValueError("Evidence judge must be deepseek or jev")
+                if evidence_judge == "jev" and not os.getenv("OPENROUTER_API_KEY"):
+                    raise ValueError("Set OPENROUTER_API_KEY before starting a run with Jev")
                 iterations = payload.get("max_iterations", 3)
                 if (
                     isinstance(iterations, bool)
@@ -450,7 +461,9 @@ def handler_for(
                         next_step=Step.INSPECT_REPOSITORY,
                         required_change_type=ChangeType(change_type) if change_type else None,
                         papers=papers,
-                        literature_settings=LiteratureSettings(enabled=True),
+                        literature_settings=LiteratureSettings(
+                            enabled=True, evidence_judge=evidence_judge
+                        ),
                         execution=execution,
                         llm=LLMSettings.from_environment(),
                         baseline=Baseline(metric_name=metric_name, direction=direction),
