@@ -13,7 +13,7 @@ LabPilot connects literature evidence, ML hypotheses, isolated experiments, and 
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB)
 ![React 19](https://img.shields.io/badge/UI-React%2019-61DAFB)
 
-<img src="docs/images/dashboard-en.png" alt="LabPilot research dashboard" width="100%" />
+<img src="docs/images/dashboard-en.png" alt="LabPilot research dashboard" width="960" />
 
 </div>
 
@@ -29,23 +29,36 @@ LabPilot uses DeepSeek for research planning and optional code proposals. Jev ca
 
 ## Explore the workbench
 
-The interface is bilingual. These screenshots show the dashboard, custom research controls, a reviewable plan, and saved reports. The 3D dashboard scene is decorative; charts and decisions come from saved experiment records.
+The interface is bilingual. Below are the English dashboard and paired plan previews; the two plan images use the same viewport so they line up evenly. The 3D dashboard scene is decorative; charts and decisions come from saved experiment records.
 
-<p align="center">
-  <img src="docs/images/dashboard-zh.png" alt="LabPilot 中文研究工作台" width="100%" />
-</p>
-<p align="center">
-  <img src="docs/images/new-research-advanced-zh.png" alt="Custom research settings" width="49%" />
-  <img src="docs/images/research-plan-preview-en.png" alt="Reviewable research plan preview" width="49%" />
-</p>
-<p align="center">
-  <img src="docs/images/research-plan-preview-zh.png" alt="中文研究计划预览" width="49%" />
-  <img src="docs/images/report-detail-zh.png" alt="Saved experiment report" width="49%" />
-</p>
-<p align="center">
-  <img src="docs/images/report-en.png" alt="English report preview" width="49%" />
-  <img src="docs/images/dashboard-en.png" alt="English research dashboard" width="49%" />
-</p>
+<table>
+  <tr><th>English plan preview</th><th>中文计划预览</th></tr>
+  <tr>
+    <td><img src="docs/images/research-plan-preview-en.png" alt="Reviewable English research plan" width="560" /></td>
+    <td><img src="docs/images/research-plan-preview-zh.png" alt="中文研究计划预览" width="560" /></td>
+  </tr>
+</table>
+
+<details>
+<summary>More screenshots: Chinese dashboard, custom research, and reports</summary>
+
+**Chinese dashboard**
+
+<img src="docs/images/dashboard-zh.png" alt="LabPilot 中文研究工作台" width="800" />
+
+**Custom research settings**
+
+<img src="docs/images/new-research-advanced-zh.png" alt="Custom research settings" width="800" />
+
+**Saved report**
+
+<img src="docs/images/report-detail-zh.png" alt="Saved experiment report" width="800" />
+
+**English report preview**
+
+<img src="docs/images/report-en.png" alt="English report preview" width="800" />
+
+</details>
 
 Screenshots use local demonstration data. They illustrate the workbench, not a general claim about model performance.
 

@@ -13,7 +13,7 @@ LabPilot 把文献证据、机器学习假设、隔离实验与量化决策连�
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB)
 ![React 19](https://img.shields.io/badge/UI-React%2019-61DAFB)
 
-<img src="docs/images/dashboard-zh.png" alt="LabPilot 中文研究工作台" width="100%" />
+<img src="docs/images/dashboard-zh.png" alt="LabPilot 中文研究工作台" width="960" />
 
 </div>
 
@@ -29,20 +29,36 @@ DeepSeek 用于研究规划和可选的代码方案；Jev 可通过 OpenRouter �
 
 ## 看看工作台
 
-中英文界面支持自定义研究任务、计划预览、证据追踪和已保存报告。截图使用本地演示数据；首页 3D 场景是装饰效果，图表与实验结论来自保存的运行记录。
+中英文界面支持自定义研究任务、计划预览、证据追踪和已保存报告。下方两张计划图使用相同窗口尺寸，因此并排对齐。截图使用本地演示数据；首页 3D 场景是装饰效果，图表与实验结论来自保存的运行记录。
 
-<p align="center">
-  <img src="docs/images/new-research-advanced-zh.png" alt="主题、基线、指标与高级研究设置" width="49%" />
-  <img src="docs/images/research-plan-preview-zh.png" alt="研究计划预览" width="49%" />
-</p>
-<p align="center">
-  <img src="docs/images/research-plan-preview-en.png" alt="English research plan preview" width="49%" />
-  <img src="docs/images/report-detail-zh.png" alt="实验结果和研究报告" width="49%" />
-</p>
-<p align="center">
-  <img src="docs/images/report-en.png" alt="English report preview" width="49%" />
-  <img src="docs/images/dashboard-en.png" alt="English dashboard" width="49%" />
-</p>
+<table>
+  <tr><th>中文计划预览</th><th>English plan preview</th></tr>
+  <tr>
+    <td><img src="docs/images/research-plan-preview-zh.png" alt="研究计划预览" width="560" /></td>
+    <td><img src="docs/images/research-plan-preview-en.png" alt="English research plan preview" width="560" /></td>
+  </tr>
+</table>
+
+<details>
+<summary>更多截图：双语工作台、自定义研究和报告</summary>
+
+**English dashboard**
+
+<img src="docs/images/dashboard-en.png" alt="English dashboard" width="800" />
+
+**主题、基线、指标与高级研究设置**
+
+<img src="docs/images/new-research-advanced-zh.png" alt="Custom research settings" width="800" />
+
+**实验结果和研究报告**
+
+<img src="docs/images/report-detail-zh.png" alt="Saved experiment report" width="800" />
+
+**English report preview**
+
+<img src="docs/images/report-en.png" alt="English report preview" width="800" />
+
+</details>
 
 ## 快速开始
 
