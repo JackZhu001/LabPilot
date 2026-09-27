@@ -1,135 +1,111 @@
 # LabPilot
 
-**Autonomous ML Research & Experimentation Agent**
+<div align="center">
 
-[中文说明](README.zh-CN.md) · [Quick start](#setup) · [Research workflow](#custom-research-workflow) · [Phase 10 results](docs/phase10-report.md)
+### From a research question to an experiment you can inspect, reproduce, and challenge.
 
-LabPilot aims to make ML research reproducible, traceable, and bounded: every
-hypothesis should connect to evidence, every experiment to a hypothesis, and every
-decision to a measurable result.
+LabPilot connects literature evidence, ML hypotheses, isolated experiments, and measured decisions in one recoverable workflow.
 
-```text
-Literature → Evidence → Hypothesis → Experiment → Metric → Keep / Reject / Replan
-```
+[English](README.md) · [简体中文](README.zh-CN.md) · [Get started](#get-started) · [See the results](docs/phase10-report.md)
 
-**Current scope: Phases 1–10 complete for three bounded image benchmarks.** Phase 10 adds CIFAR-10 (32×32 RGB), a dedicated CNN profile, and an 11-seed Docker evaluation. Across the expanded eight-seed batch, dropout 0.3 averaged −0.0123 paired accuracy change (sample SD 0.0126), so this setup showed no stable gain. See the [Phase 10 report](docs/phase10-report.md). Fake mode
-preserves the fast offline fixtures. Agent mode uses a provider-independent typed
-interface with DeepSeek to inspect a bounded repository context, propose and plan a
-hypothesis, generate a validated patch when required, and explain the measured
-result. The bilingual workbench offers a reviewable custom-research flow for uploaded
-papers, local baselines, target metrics, reproducibility seeds, and research constraints.
-An optional bounded literature path plans scholarly queries, retrieves and
-deduplicates arXiv/Semantic Scholar metadata, verifies claims against exact abstract
-spans, synthesizes explicit evidence relations, and keeps provenance through the
-selected hypothesis. Git, Docker, Optuna, and DecisionEngine retain execution authority.
+[![GitHub stars](https://img.shields.io/github/stars/JackZhu001/LabPilot?style=social)](https://github.com/JackZhu001/LabPilot/stargazers)
+![Last commit](https://img.shields.io/github/last-commit/JackZhu001/LabPilot)
+![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB)
+![React 19](https://img.shields.io/badge/UI-React%2019-61DAFB)
+
+<img src="docs/images/dashboard-en.png" alt="LabPilot research dashboard" width="100%" />
+
+</div>
+
+Research work is more than generating an idea. You need to know which source supports it, what changed in the code, how the experiment ran, and why the result was kept or rejected. LabPilot keeps that chain together—so a promising result is easier to verify and a failed result still teaches you something.
+
+## A complete research loop, with you in control
+
+| Shape the question | Ground it in sources | Test the change | Keep a useful record |
+| --- | --- | --- | --- |
+| Set the topic, baseline repository, target metric, seed, scope, and constraints. | Search arXiv and Semantic Scholar, or upload papers. Claims stay linked to source text. | Review the plan, then run bounded experiments in isolated Docker containers. | See measured metrics, diffs, provenance, and KEEP / REJECT / REPLAN decisions in a resumable report. |
+
+LabPilot uses DeepSeek for research planning and optional code proposals. Jev can add structured evidence assessment through OpenRouter. Deterministic policies and measured experiment results remain the basis for experiment decisions.
 
 ## Explore the workbench
 
-The bilingual workbench connects to saved SQLite runs so you can inspect experiments,
-trace evidence, compare conditions, and export reports. The CSS 3D scene is decorative;
-experiment metrics come from saved records.
+The interface is bilingual. These screenshots show the dashboard, custom research controls, a reviewable plan, and saved reports. The 3D dashboard scene is decorative; charts and decisions come from saved experiment records.
 
-| English dashboard | 中文工作台 |
-| --- | --- |
-| ![LabPilot research dashboard](docs/images/dashboard-en.png) | ![LabPilot 中文研究工作台](docs/images/dashboard-zh.png) |
+<p align="center">
+  <img src="docs/images/dashboard-zh.png" alt="LabPilot 中文研究工作台" width="100%" />
+</p>
+<p align="center">
+  <img src="docs/images/new-research-advanced-zh.png" alt="Custom research settings" width="49%" />
+  <img src="docs/images/research-plan-preview-en.png" alt="Reviewable research plan preview" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/images/research-plan-preview-zh.png" alt="中文研究计划预览" width="49%" />
+  <img src="docs/images/report-detail-zh.png" alt="Saved experiment report" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/images/report-en.png" alt="English report preview" width="49%" />
+  <img src="docs/images/dashboard-en.png" alt="English research dashboard" width="49%" />
+</p>
 
-| Custom research settings | Plan preview in Chinese |
-| --- | --- |
-| ![Research constraints, seed and literature budget](docs/images/new-research-advanced-zh.png) | ![自定义研究计划预览](docs/images/research-plan-preview-zh.png) |
+Screenshots use local demonstration data. They illustrate the workbench, not a general claim about model performance.
 
-| Plan preview in English | Saved research report |
-| --- | --- |
-| ![Reviewable English research plan](docs/images/research-plan-preview-en.png) | ![研究报告与实验指标](docs/images/report-detail-zh.png) |
+## What makes LabPilot useful
 
-Screenshots show local demonstration runs, including simulated and Docker
-experiments. The MNIST result is illustrative, not a general benchmark claim.
+- **Evidence you can follow:** paper → source-backed claim → evidence relation → hypothesis.
+- **Experiments you can inspect:** isolated Docker runs preserve the baseline, code change, configuration, seed, artifacts, and metrics.
+- **Decisions you can explain:** explicit thresholds produce KEEP, REJECT, or REPLAN; numerical results stay separate from model-generated prose.
+- **Work you can resume:** SQLite checkpoints let a run continue after interruption, with a report generated from saved state.
+- **Research you can customize:** start with a topic, uploaded papers, a local Git baseline, metric, constraints, and bounded search/experiment budgets.
 
-| Research workflow | Engineering guarantees | Workbench |
-| --- | --- | --- |
-| Literature → claims → evidence → hypotheses | Typed state and linked provenance | English / 简体中文 |
-| Validated patches and Docker experiments | Execution budgets and isolated worktrees | Experiment and HPO inspection |
-| Optuna hyperparameter search | SQLite checkpoints and resume | Evidence chains and source state |
-| KEEP / REJECT / REPLAN decisions | Deterministic metric thresholds | Markdown / JSON reports and cohort comparisons |
+## Get started
 
-## Why this project exists
-
-Research scripts often lose the context behind an experiment: its source claim,
-expected effect, baseline, reason for rejection, or the next action after a crash.
-LabPilot makes those relationships and transitions explicit in a persisted research
-state. Its value is the engineering of that loop, rather than a collection of
-chatbot roles.
-
-## Current capabilities
-
-- Pydantic v2 models for literature, evidence, hypotheses, patches, experiments,
-  trials, metrics, budgets, decisions, and the central research state.
-- UUID provenance links, immutable models, validated JSON round trips, schema
-  versioning, finite metrics, confidence bounds, and timezone-aware timestamps.
-- Independent numerical decision policy supporting maximization and minimization.
-- LangGraph orchestration with bounded KEEP, REJECT, and REPLAN paths.
-- Injectable literature, evidence, hypothesis, and experiment service protocols.
-- Deterministic fake scenarios, including expected experiment failures.
-- SQLAlchemy 2.x / SQLite snapshots, metadata listings, and optimistic revisions.
-- Pause after any completed step; resume in a fresh process from the next step.
-- Typed floating-point, integer, and categorical search spaces with validated
-  conversion to experiment configuration.
-- Persistent Optuna studies, seeded TPE sampling, exact HPO budget accounting,
-  failed-trial continuation, and deterministic best-trial selection.
-- One isolated Docker experiment per accepted trial, with a generated validated
-  parameter file retained in its source snapshot.
-- Provider-independent structured LLM calls with a DeepSeek OpenAI-compatible
-  adapter, bounded retries, and persisted request/token/latency provenance.
-- Deterministic repository context selection that excludes secrets, datasets,
-  binaries, generated outputs, and oversized files.
-- Multi-role outer-loop services for repository inspection, hypotheses, planning,
-  code patches, and supplemental critique, each returning validated schemas.
-- Provider-independent arXiv and Semantic Scholar retrieval with deterministic
-  DOI/arXiv/title deduplication, response caching, and per-provider degradation.
-- Abstract-scoped claim fidelity checks, explicit SUPPORT/CONTRADICT/NEUTRAL
-  evidence, conflict/gap synthesis, and hypothesis-to-paper provenance.
-- Disposable-worktree patch checks, target/path/size policy, repair limits, and
-  Python syntax preflight before training.
-- CLI inspection, JSON export to stdout, and standard logging with research,
-  hypothesis, study, trial, and experiment identifiers.
-- Local HTTP API for creating research runs and viewing run, experiment, HPO,
-  evidence, activity, state, and artifact data.
-- OpenRouter Jev Decisions API assessment of a paper claim, with relation,
-  strength, relevance probability, token usage and cost.
-
-## Custom research workflow
-
-The **New research** page accepts a research question, up to five source papers,
-and a clean local Git baseline. Before starting, LabPilot checks the baseline and
-previews the literature-search budget, experiment limit, allowed change scope,
-and objective metric. Confirm the plan to start a DeepSeek-backed run using the
-selected maximize/minimize metric; Docker executes the experiments in isolation.
-See [frontend setup](frontend/README.md) for running the workbench locally.
-
-### Jev evidence triage
-
-The new-research form can use Jev through OpenRouter's Decisions API. Select
-Jev under “Evidence assessment” to save its relation, relevance, strength, token
-usage, and cost alongside each cited claim. The backend needs an
-`OPENROUTER_API_KEY` environment variable; preview checks for it. OpenRouter's
-model ID is pinned to `typesafe/jev-1.13`. A separate CLI command uses the
-official TypeSafe SDK directly:
+You can explore the workbench with simulated data and no model key. Python 3.11+ and Node.js are required; Docker is needed only for isolated real experiments.
 
 ```bash
-export TYPESAFE_API_KEY="your-key"
-labpilot judge-evidence --hypothesis "Dropout improves validation accuracy" \
-  --claim "The method reduced overfitting and improved held-out accuracy."
+uv sync --locked --extra dev
+uv run labpilot run --goal "Does dropout improve validation accuracy?"
+uv run labpilot serve-api --db .labpilot/labpilot.sqlite3
 ```
 
-That standalone command needs `TYPESAFE_API_KEY`. Jev is hosted and needs
-network access; no local model runtime is required. Its result is advisory and
-does not replace source verification or LabPilot's numerical experiment
-decision. See the [OpenRouter Jev guide](https://openrouter.ai/blog/tutorials/how-to-use-jev/)
-and [official Python SDK](https://github.com/typesafe-ai/typesafe-sdk-python).
+In another terminal:
 
-Docker mode adds `ExecutionEnvironment`, `ExecutionStatus`, `ExperimentArtifact`,
-`GitMetadata`, `DockerMetadata`, `MetricReport`, and `ExecutionProvenance`. Supplied
-patches are retained in `CodePatch`. In HPO mode, one Optuna trial maps to one
-LabPilot `Trial` and one `Experiment`; the measured baseline remains outside the study.
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Open the local address printed by Vite. The first command creates a simulated run for the dashboard. See the [frontend guide](frontend/README.md) for more detail. Live research requires a DeepSeek key; Jev assessment requires an OpenRouter key. Keep both on the backend and out of browser code and Git.
+
+## A real, bounded result
+
+Phase 10 adds a CIFAR-10 RGB baseline and host-verified dataset preparation for network-isolated Docker runs. In the expanded eight-seed evaluation, dropout 0.3 had a mean paired validation-accuracy change of **−0.0123** (sample SD **0.0126**); it was rejected on all eight seeds. This is evidence about this short-training setup, not a universal conclusion about dropout. The [full report](docs/phase10-report.md) records the image, commit, seed range, metrics, and limitations.
+
+## Built for traceability
+
+```text
+Research brief → sources → claims → hypotheses → reviewed plan
+                                              ↓
+                           isolated run → metric → decision → report
+```
+
+The workflow is backed by typed research state, explicit budgets, Git worktrees, Docker execution, SQLite checkpoints, Optuna HPO, and reproducible Markdown / JSON reports. See [architecture](#architecture), [CLI examples](#cli-examples), and [all phase reports](docs/).
+
+<details>
+<summary>Jev through OpenRouter</summary>
+
+Set `OPENROUTER_API_KEY` in the backend environment and select **Jev** under Evidence assessment when creating a research run. LabPilot uses the pinned `typesafe/jev-1.13` model via OpenRouter Decisions API, and saves relation, relevance, strength, token usage, and cost with the evidence. See the [OpenRouter Jev guide](https://openrouter.ai/blog/tutorials/how-to-use-jev/).
+
+The standalone `labpilot judge-evidence` CLI command uses TypeSafe's direct API and requires `TYPESAFE_API_KEY`.
+
+</details>
+
+<details>
+<summary>Limitations and current scope</summary>
+
+The built-in vision profiles are small, bounded benchmarks. The CIFAR-10 pilot is not a state-of-the-art comparison. Literature retrieval is limited to arXiv and Semantic Scholar metadata/abstracts unless you upload a paper. Jev assessments are advisory and do not replace source verification. See [limitations](#limitations) and the [Phase 10 report](docs/phase10-report.md).
+
+</details>
 
 ## Architecture
 

@@ -1,51 +1,60 @@
 # LabPilot
 
-**自主机器学习研究与实验助手** · [English](README.md)
+<div align="center">
 
-[快速开始](README.md#setup) · [自定义研究流程](README.md#custom-research-workflow) · [Phase 9 报告](docs/phase9-report.md)
+### 从一个研究问题出发，走到可复核、可复现的实验结论。
 
-从文献证据到可测量的实验结果：LabPilot 将假设、代码变更、隔离执行、指标与决策连接到同一份可恢复的研究状态。工作台支持先预览再启动的自定义研究流程，可指定论文、baseline、目标指标、随机种子、文献预算和研究约束。
+LabPilot 把文献证据、机器学习假设、隔离实验与量化决策连成一条可恢复的研究流程。
 
-| 中文工作台 | English workbench |
-| --- | --- |
-| ![LabPilot 中文研究工作台](docs/images/dashboard-zh.png) | ![LabPilot research dashboard](docs/images/dashboard-en.png) |
+[English](README.md) · [快速开始](#快速开始) · [查看实测报告](docs/phase10-report.md)
 
-| 自定义研究设置 | 中文计划预览 |
-| --- | --- |
-| ![研究约束、随机种子与文献预算](docs/images/new-research-advanced-zh.png) | ![自定义研究计划预览](docs/images/research-plan-preview-zh.png) |
+[![GitHub stars](https://img.shields.io/github/stars/JackZhu001/LabPilot?style=social)](https://github.com/JackZhu001/LabPilot/stargazers)
+![最近更新](https://img.shields.io/github/last-commit/JackZhu001/LabPilot)
+![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB)
+![React 19](https://img.shields.io/badge/UI-React%2019-61DAFB)
 
-| English plan preview | 研究报告 |
-| --- | --- |
-| ![Reviewable English research plan](docs/images/research-plan-preview-en.png) | ![研究报告与实验指标](docs/images/report-detail-zh.png) |
+<img src="docs/images/dashboard-zh.png" alt="LabPilot 中文研究工作台" width="100%" />
 
-## 可以做什么
+</div>
 
-- **文献与证据**：检索 arXiv / Semantic Scholar，提取可核对的摘要论点，保留论文、证据与假设之间的关联。
-- **研究与实验**：DeepSeek 生成结构化研究计划、假设和补丁；通过 Git 工作树和 Docker 执行实验。
-- **超参数优化**：Optuna 搜索空间、试验状态和预算持久化，支持失败后继续后续试验。
-- **确定性决策**：依据真实指标与阈值选择保留、拒绝或重新规划，支持最大化与最小化目标。
-- **报告与对比**：导出带版本和 SHA-256 指纹的 Markdown / JSON 报告，按记录的实验条件对比历史运行。
-- **双语工作台**：中英文切换、深浅主题、交互式 3D 模型、页面与卡片动效、全局动画暂停以及系统减少动态效果支持。
+研究不只是生成一个点子。还需要知道论据来自哪篇论文、实验改了什么、基线和随机种子是什么，以及结果为何被保留或拒绝。LabPilot 将这些信息连在同一份研究记录中，让成功结果更容易核验，让失败实验也能留下可复用的结论。
 
-### 自定义研究任务
+## 一条可审查的研究流程
 
-在 **New research** 页面填写主题，可上传最多 5 篇论文并指定干净的本地 Git baseline。启动前，LabPilot 会检查 baseline，并预览文献检索预算、实验上限、改动范围和优化指标。确认后启动 DeepSeek 研究运行，按指定的最大化或最小化指标执行隔离 Docker 实验。查看[前端本地启动说明](frontend/README.md)。
+| 定义问题 | 连接证据 | 控制实验 | 留下结论 |
+| --- | --- | --- | --- |
+| 设置主题、代码基线、目标指标、随机种子和约束。 | 检索 arXiv / Semantic Scholar，或上传论文；论点保留原文来源。 | 先预览计划，再用隔离 Docker 环境运行有预算边界的实验。 | 查看指标、代码差异、来源记录与 KEEP / REJECT / REPLAN 决策，并可从检查点续跑。 |
 
-研究目标、论文原文、代码、原始状态与导出快照保留原始语言。动画模型是视觉展示，不代表实时科研进度。
+DeepSeek 用于研究规划和可选的代码方案；Jev 可通过 OpenRouter 提供结构化文献证据评估。实验决策以可测量结果和确定性规则为准。
 
-## 本地启动
+## 看看工作台
 
-需要 Python 3.11+，以及符合当前 Vite 版本要求的 Node.js。Docker 仅在运行真实隔离实验时需要。
+中英文界面支持自定义研究任务、计划预览、证据追踪和已保存报告。截图使用本地演示数据；首页 3D 场景是装饰效果，图表与实验结论来自保存的运行记录。
+
+<p align="center">
+  <img src="docs/images/new-research-advanced-zh.png" alt="主题、基线、指标与高级研究设置" width="49%" />
+  <img src="docs/images/research-plan-preview-zh.png" alt="研究计划预览" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/images/research-plan-preview-en.png" alt="English research plan preview" width="49%" />
+  <img src="docs/images/report-detail-zh.png" alt="实验结果和研究报告" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/images/report-en.png" alt="English report preview" width="49%" />
+  <img src="docs/images/dashboard-en.png" alt="English dashboard" width="49%" />
+</p>
+
+## 快速开始
+
+无需模型密钥即可用模拟数据启动工作台。需要 Python 3.11+ 和 Node.js；只有真实隔离实验需要 Docker。
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-labpilot run --goal "Does dropout improve validation accuracy?"
-labpilot serve-api
+uv sync --locked --extra dev
+uv run labpilot run --goal "Does dropout improve validation accuracy?"
+uv run labpilot serve-api --db .labpilot/labpilot.sqlite3
 ```
 
-上面的研究命令使用默认离线模拟模式，不会产生真实训练结果。另开一个终端启动前端：
+另开一个终端启动前端：
 
 ```bash
 cd frontend
@@ -53,65 +62,56 @@ npm ci
 npm run dev
 ```
 
-打开终端显示的本地地址。顶栏可切换语言、动画与主题，偏好保存在本设备上。真实实验与 DeepSeek 配置请查看 [完整使用说明](README.md#setup)，密钥通过环境变量提供，不要提交到仓库。根目录 `.env` 不会自动加载，使用前运行 `set -a; source .env; set +a`。
+打开 Vite 显示的本地地址，即可在工作台查看刚生成的模拟运行。查看[前端运行说明](frontend/README.md)。真实 DeepSeek 研究需要 DeepSeek API key；Jev 证据评估需要服务端设置 `OPENROUTER_API_KEY`。密钥只应放在后端环境中，不要写入前端或提交到 Git。
 
-## 多种子评估（Phase 7）
+## 自定义你的研究任务
 
-使用相同目标和实验设置，对多个随机种子逐个运行并汇总配对提升值：
+在 **New research** 页面输入主题，可上传最多 5 篇论文，指定本地 Git baseline、目标指标、随机种子、文献预算和改动约束。启动前先检查仓库并预览计划；确认后再开始研究。实验在 Docker 中隔离运行，报告保留来源、代码差异、运行条件与测量结果。
 
-```bash
-labpilot evaluate --goal "Does dropout improve validation accuracy?" \
-  --seeds 42,43,44 --executor docker --repo .labpilot/baselines/mnist-phase4 \
-  --evaluation-id 9cf9a8c8-35c1-4cb4-8773-596271b6ccbb
+## 一项真实的有限范围评估
+
+Phase 10 增加 CIFAR-10 RGB 基线和宿主机校验的数据准备流程，使 Docker 训练容器保持离线。在扩展的 8 种子评估中，dropout 0.3 的验证准确率配对变化均值为 **−0.0123**（样本标准差 **0.0126**），8 个种子均未达到 KEEP 条件。这只说明该短训练配置没有显示稳定收益，不代表 dropout 普遍无效。[完整报告](docs/phase10-report.md)列出镜像、提交、种子、指标与局限。
+
+## 面向可追溯性的工程设计
+
+```text
+研究任务 → 文献 → 原文论点 → 假设 → 可审查计划
+                                  ↓
+                           隔离实验 → 指标 → 决策 → 报告
 ```
 
-中断后使用相同的评估 ID 和参数重新运行即可从 SQLite 检查点续跑。离线模拟模式可省略 Docker 参数，但模拟结果不会随种子变化，不能作为真实训练测量。
+核心记录由类型化研究状态、显式预算、Git 工作树、Docker、SQLite 检查点、Optuna HPO 和 Markdown / JSON 报告支撑。可查看[架构说明](README.md#architecture)、[CLI 示例](README.md#cli-examples)和[阶段报告](docs/)。
 
-真实 Docker 评估已扩展到 8 个种子（42–49）：平均配对提升为 -0.000562，样本标准差为 0.001898，2/8 达到 KEEP 门槛。结果不支持认为 dropout 改动稳定有效。完整配置、运行 ID 和限制见 [Phase 7 实测记录](docs/phase7-report.md)；后续仍需更多种子与预先定义的干预。
+<details>
+<summary>通过 OpenRouter 使用 Jev</summary>
 
-## 报告
+在后端环境设置 `OPENROUTER_API_KEY`，并在新建研究页面选择 **Jev**。LabPilot 通过 OpenRouter Decisions API 调用固定模型 `typesafe/jev-1.13`，将关系、相关度、证据强度、token 用量和费用保存到证据记录。详见 [OpenRouter Jev 指南](https://openrouter.ai/blog/tutorials/how-to-use-jev/)。
 
-![研究报告预览](docs/images/report-en.png)
+独立 CLI 命令 `labpilot judge-evidence` 使用 TypeSafe 官方 API，需要单独设置 `TYPESAFE_API_KEY`。
 
-```bash
-labpilot report RUN_ID --db .labpilot/labpilot.sqlite3 --format markdown > report.md
-labpilot benchmark --db .labpilot/labpilot.sqlite3 --format json > benchmark.json
-```
+</details>
 
-报告从已保存状态生成，不会调用大模型或重新训练。重现实验时还需保留原始数据集、镜像和产物文件。
+<details>
+<summary>当前范围与局限</summary>
 
-## 当前进度与边界
+内置视觉任务是小规模、有边界的基准；CIFAR-10 实验不是 SOTA 对比。文献检索使用 arXiv 和 Semantic Scholar 的元数据与摘要，也支持用户上传论文。Jev 判断仅作辅助，不能替代原文核查。LabPilot 是有边界的研究自动化工具，目前不应宣称已经实现递归自我改进（RSI）。
 
-Phase 1–10 已实现三个有界图像基准。Phase 10 新增 32×32 RGB CIFAR-10 专用 CNN 和校验后的离线 Docker 数据集缓存，并在固定镜像上完成 3 种子与扩展 8 种子评估。扩展批次配对变化均值 −0.0123，样本标准差 0.0126；当前不支持 dropout 在此训练配置下有稳定收益的结论。Phase 8 已支持将 DeepSeek 的 CONFIG_ONLY 方案直接交给可续跑的多种子评估；Phase 9 在 FashionMNIST 上完成了来源可追溯的 8 种子运行。详见 [Phase 7 实测记录](docs/phase7-report.md)、[Phase 8 结果](docs/phase8-report.md)、[Phase 9 FashionMNIST 报告](docs/phase9-report.md) 和 [Phase 10 CIFAR-10 报告](docs/phase10-report.md)。截图为本地演示运行，结果不代表通用能力。
+</details>
 
-评估已完成的 DeepSeek 配置方案时，可通过 `labpilot evaluate --from-run RUN_ID` 直接复用，不必手动重建参数。来源运行、仓库提交、镜像标识和训练命令必须匹配；运行清单和报告会保留来源 ID 与候选配置。
+## 项目进度
 
-### Jev 文献证据判断
+Phase 1–10 已实现 MNIST、FashionMNIST 和 CIFAR-10 三个图像基准。CIFAR-10 已完成 11 个固定种子的 Docker 评估；扩展 8 种子批次未显示 dropout 0.3 的稳定收益。另有 DeepSeek 方案交接、多种子续跑、报告和来源追踪能力。详见 [Phase 7](docs/phase7-report.md)、[Phase 8](docs/phase8-report.md)、[Phase 9](docs/phase9-report.md) 与 [Phase 10](docs/phase10-report.md)。
 
-新建研究时可将“证据评估方式”设为 Jev，通过 OpenRouter Decisions API 评估，并将关系、0–4 证据强度、相关概率、token 用量和费用保存到证据记录。服务端需要设置 `OPENROUTER_API_KEY`，预览会检查它是否存在；模型固定为 `typesafe/jev-1.13`。另有 CLI 命令可通过 TypeSafe 官方 Python SDK 直连：
-
-```bash
-export TYPESAFE_API_KEY="your-key"
-labpilot judge-evidence --hypothesis "Dropout improves validation accuracy" \
-  --claim "The method reduced overfitting and improved held-out accuracy."
-```
-
-该独立 CLI 命令需要 `TYPESAFE_API_KEY`。Jev 是托管 API，需要网络，不需要本地模型 runtime。评估结果用于文献初筛，不能替代原文核验，也不会改变 LabPilot 基于实验指标作出的决策。详见 [OpenRouter Jev 指南](https://openrouter.ai/blog/tutorials/how-to-use-jev/) 与[官方 Python SDK](https://github.com/typesafe-ai/typesafe-sdk-python)。
-
-Phase 10 的 CIFAR-10 基准已完成 11 个固定种子的 Docker 评估；dropout 0.3 在扩展批次的 8 个种子上均未达到 KEEP 条件。详见 [Phase 10 报告](docs/phase10-report.md)。
-
-历史运行对比属于观察性统计，不证明文献策略的因果收益。项目是有边界的研究自动化系统，目前不应宣称已经实现递归自我改进（RSI）。
-
-## 验证
+## 开发验证
 
 ```bash
 pytest -q
 ruff check src tests
 mypy src
 cd frontend
-npm run build
 npm run lint
+npm run build
 npm run smoke
 ```
 
-前端烟雾检查覆盖路由渲染与语言翻译。默认后端测试排除需要 Docker 或真实外部服务的测试。
+前端烟雾检查涵盖路由渲染和语言翻译；默认后端测试不包含 Docker 或真实外部服务调用。
